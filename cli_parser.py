@@ -1,9 +1,10 @@
 import argparse
+from config_manager import version_info
 
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description='PlaylistControl v2.0',
+        description=version_info.get_full_name(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 使用示例:
@@ -64,5 +65,10 @@ def parse_arguments():
                        help='静默模式，减少输出')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='详细输出模式')
+    
+    # 版本参数
+    parser.add_argument('--version', action='version', 
+                       version=version_info.get_full_name(),
+                       help='显示程序版本')
     
     return parser.parse_args()

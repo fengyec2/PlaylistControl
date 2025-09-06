@@ -67,13 +67,13 @@ MediaTracker.exe -d
 ### 查看播放历史
 
 ```bash
-# 显示最近播放的20首歌曲
+# 显示最近播放的 20 首歌曲
 MediaTracker.exe -r 20
 
 # 显示播放统计信息
 MediaTracker.exe -s
 
-# 导出播放历史到JSON文件
+# 导出播放历史到 JSON 文件
 MediaTracker.exe -e playlist.json
 ```
 
@@ -81,10 +81,10 @@ MediaTracker.exe -e playlist.json
 
 **启动守护进程**:
 ```bash
-# 使用默认PID文件启动
+# 使用默认 PID 文件启动
 MediaTracker.exe -d
 
-# 指定PID文件路径启动
+# 指定 PID 文件路径启动
 MediaTracker.exe -d --pid-file daemon.pid
 ```
 
@@ -93,7 +93,7 @@ MediaTracker.exe -d --pid-file daemon.pid
 # 自动查找并停止后台运行的程序
 MediaTracker.exe --stop
 
-# 使用指定PID文件停止
+# 使用指定 PID 文件停止
 MediaTracker.exe --stop --pid-file daemon.pid
 ```
 
@@ -104,7 +104,7 @@ MediaTracker.exe --stop --pid-file daemon.pid
 # 自定义监控间隔（秒）
 MediaTracker.exe -b -i 5
 
-# 设置5秒监控间隔的守护进程
+# 设置 5 秒监控间隔的守护进程
 MediaTracker.exe -d -i 5 --pid-file daemon.pid
 ```
 
@@ -116,7 +116,7 @@ MediaTracker.exe -q
 # 详细输出模式 - 显示更多调试信息
 MediaTracker.exe -v
 
-# 禁用emoji显示 - 纯文本输出
+# 禁用 Emoji 显示 - 纯文本输出
 MediaTracker.exe --no-emoji
 
 # 组合使用多个选项
@@ -129,15 +129,16 @@ MediaTracker.exe -b -q --no-emoji -i 10
 |------|--------|------|
 | `-b` | `--background` | 后台监控模式，可看到输出但在后台运行 |
 | `-d` | `--daemon` | 守护进程模式，完全静默后台运行 |
-| `-r N` | `--recent N` | 显示最近N首播放的歌曲 |
+| `-r N` | `--recent N` | 显示最近 N 首播放的歌曲 |
 | `-s` | `--stats` | 显示播放统计信息 |
 | `-e FILE` | `--export FILE` | 导出播放历史到指定文件 |
 | | `--stop` | 停止后台运行的程序 |
 | `-i SECONDS` | `--interval SECONDS` | 设置监控间隔（秒） |
-| | `--pid-file FILE` | 指定PID文件路径 |
-| | `--no-emoji` | 禁用emoji显示 |
+| | `--pid-file FILE` | 指定 PID 文件路径 |
+| | `--no-emoji` | 禁用 Emoji 显示 |
 | `-q` | `--quiet` | 静默模式，减少输出 |
 | `-v` | `--verbose` | 详细输出模式 |
+| | `--version` | 显示程序版本 |
 
 
 ### 配置选项

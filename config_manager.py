@@ -4,6 +4,40 @@ import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
+class VersionInfo:
+    """版本信息类 - 不会被保存到配置文件"""
+    VERSION = "2.1.0"
+    VERSION_TUPLE = (2, 1, 0, 0)
+    APP_NAME = "PlaylistControl"
+    AUTHOR = "fengyec2"
+    COMPANY = "fengyec2"
+    DESCRIPTION = "PlaylistControl"
+    
+    @classmethod
+    def get_version(cls) -> str:
+        """获取版本号"""
+        return cls.VERSION
+    
+    @classmethod
+    def get_version_tuple(cls) -> tuple:
+        """获取版本元组"""
+        return cls.VERSION_TUPLE
+    
+    @classmethod
+    def get_app_name(cls) -> str:
+        """获取应用名称"""
+        return cls.APP_NAME
+    
+    @classmethod
+    def get_copyright(cls) -> str:
+        """获取版权信息"""
+        return f"Copyright © 2025 {cls.AUTHOR}"
+    
+    @classmethod
+    def get_full_name(cls) -> str:
+        """获取完整应用名称和版本"""
+        return f"{cls.APP_NAME} v{cls.VERSION}"
+
 class ConfigManager:
     def __init__(self, config_file: str = "config.json"):
         self.config_file = config_file
@@ -159,3 +193,5 @@ class ConfigManager:
 
 # 全局配置实例
 config = ConfigManager()
+# 版本信息实例
+version_info = VersionInfo()
