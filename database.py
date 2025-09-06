@@ -224,7 +224,14 @@ class DatabaseManager:
             cursor.execute('SELECT COUNT(*) FROM media_history WHERE title != ""')
             stats['total_plays'] = cursor.fetchone()[0]
             
-            cursor.execute('SELECT COUNT(DISTINCT title, artist) FROM media_history WHERE title != ""')
+            # 修改这里：使用子查询来计算不同歌曲数量
+            cursor.execute('''
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT title, artist 
+                    FROM media_history 
+                    WHERE title != ""
+                )
+            ''')
             stats['unique_songs'] = cursor.fetchone()[0]
             
             cursor.execute('SELECT COUNT(*) FROM playback_sessions')
