@@ -2,6 +2,11 @@
 import asyncio
 import json
 import os
+import sys
+import argparse
+import signal
+import threading
+import time
 from datetime import datetime
 from config_manager import config
 from database import db
@@ -29,6 +34,65 @@ def check_and_install_dependencies() -> bool:
             print(f"❌ 自动安装失败: {e}")
             print("🛠️ 请手动执行: pip install winsdk")
             return False
+
+def setup_signal_handlers():
+    """设置信号处理器，用于优雅退出"""
+    def signal_handler(signum, frame):
+        print(f"\n接收到退出信号 ({signum})，正在优雅退出...")
+        monitor.stop_monitoring()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+async def background_monitor(interval: int = None, silent: bool = False):
+    """后台监控模式"""
+    if interval is None:
+        interval = config.get_monitoring_interval()
+    
+    if not silent:
+        print(f"🎧 后台监控已启动，监控间隔: {interval}秒")
+        print("💡 程序将在后台运行，按 Ctrl+C 停止")
+        
+    logger.info(f"后台监控启动，间隔: {interval}秒")
+    
+    try:
+        await monitor.monitor_media(interval, silent_mode=silent)
+    except KeyboardInterrupt:
+        if not silent:
+            print("\n后台监控已停止")
+    except Exception as e:
+        logger.error(f"后台监控异常: {e}")
+        if not silent:
+            print(f"❌ 监控过程中出错: {e}")
+
+def run_daemon_mode(interval: int = None, pid_file: str = None):
+    """守护进程模式"""
+    if interval is None:
+        interval = config.get_monitoring_interval()
+    
+    # 写入PID文件
+    if pid_file:
+        try:
+            with open(pid_file, 'w') as f:
+                f.write(str(os.getpid()))
+            logger.info(f"PID文件已创建: {pid_file}")
+        except Exception as e:
+            logger.error(f"创建PID文件失败: {e}")
+    
+    logger.info("守护进程模式启动")
+    
+    try:
+        # 在守护进程模式下运行监控
+        asyncio.run(background_monitor(interval, silent=True))
+    finally:
+        # 清理PID文件
+        if pid_file and os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+                logger.info(f"PID文件已删除: {pid_file}")
+            except Exception as e:
+                logger.error(f"删除PID文件失败: {e}")
 
 def export_history() -> None:
     """导出播放历史"""
@@ -131,12 +195,151 @@ def show_config_editor() -> None:
         else:
             print("❌ 无效的选择，请重试")
 
+def parse_arguments():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description='Windows 媒体播放记录器 v4.0',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+使用示例:
+  python main.py                    # 交互模式
+  python main.py -b                 # 后台监控模式
+  python main.py -b -i 10           # 后台监控，10秒间隔
+  python main.py -d                 # 守护进程模式
+  python main.py -r 20              # 显示最近20首歌
+  python main.py -s                 # 显示统计信息
+  python main.py -e output.json     # 导出到指定文件
+  python main.py --stop             # 停止后台运行的程序
+        '''
+    )
+    
+    # 运行模式参数
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument('-b', '--background', action='store_true',
+                           help='后台监控模式')
+    mode_group.add_argument('-d', '--daemon', action='store_true',
+                           help='守护进程模式(静默后台运行)')
+    mode_group.add_argument('-r', '--recent', type=int, metavar='N',
+                           help='显示最近N首播放的歌曲')
+    mode_group.add_argument('-s', '--stats', action='store_true',
+                           help='显示播放统计信息')
+    mode_group.add_argument('-e', '--export', type=str, metavar='FILE',
+                           help='导出播放历史到指定文件')
+    mode_group.add_argument('--stop', action='store_true',
+                           help='停止后台运行的程序')
+    
+    # 监控参数
+    parser.add_argument('-i', '--interval', type=int, metavar='SECONDS',
+                       help='监控间隔(秒), 默认从配置文件读取')
+    parser.add_argument('--pid-file', type=str, metavar='FILE',
+                       help='PID文件路径(仅守护进程模式)')
+    
+    # 显示参数
+    parser.add_argument('--no-emoji', action='store_true',
+                       help='禁用emoji显示')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                       help='静默模式，减少输出')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                       help='详细输出模式')
+    
+    return parser.parse_args()
+
+def stop_background_process(pid_file: str = "media_tracker.pid"):
+    """停止后台运行的程序"""
+    if not os.path.exists(pid_file):
+        print("❌ 未找到运行中的后台程序")
+        return False
+    
+    try:
+        with open(pid_file, 'r') as f:
+            pid = int(f.read().strip())
+        
+        # 尝试终止进程
+        if sys.platform == "win32":
+            os.system(f"taskkill /PID {pid} /F")
+        else:
+            os.kill(pid, signal.SIGTERM)
+        
+        # 删除PID文件
+        os.remove(pid_file)
+        print(f"✅ 后台程序已停止 (PID: {pid})")
+        return True
+        
+    except Exception as e:
+        print(f"❌ 停止后台程序失败: {e}")
+        return False
+
 def main():
+    args = parse_arguments()
+    
+    # 处理停止命令
+    if args.stop:
+        stop_background_process(args.pid_file or "media_tracker.pid")
+        return
+    
     if not check_and_install_dependencies():
         return
-        
+    
+    # 设置显示选项
+    if args.no_emoji:
+        config.set("display.use_emoji", False)
+    
+    # 设置日志级别
+    if args.verbose:
+        config.set("logging.level", "DEBUG")
+    elif args.quiet:
+        config.set("logging.level", "WARNING")
+    
     use_emoji = config.should_use_emoji()
     
+    # 处理不同的运行模式
+    if args.recent is not None:
+        # 显示最近播放
+        display.show_recent_tracks(args.recent)
+        return
+    
+    if args.stats:
+        # 显示统计信息
+        display.show_statistics()
+        return
+    
+    if args.export:
+        # 导出历史记录
+        try:
+            export_data = db.export_data()
+            if not export_data:
+                print("❌ 没有数据可导出")
+                return
+                
+            with open(args.export, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=2)
+            
+            success_prefix = "✅ " if use_emoji else ""
+            stats_prefix = "📊 " if use_emoji else ""
+            
+            print(f"{success_prefix}播放历史已导出到 {args.export}")
+            print(f"{stats_prefix}包含 {export_data['export_info']['total_tracks']} 条播放记录")
+            
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+        return
+    
+    if args.daemon:
+        # 守护进程模式
+        setup_signal_handlers()
+        run_daemon_mode(args.interval, args.pid_file or "media_tracker.pid")
+        return
+    
+    if args.background:
+        # 后台监控模式
+        setup_signal_handlers()
+        try:
+            asyncio.run(background_monitor(args.interval, args.quiet))
+        except KeyboardInterrupt:
+            print("\n后台监控已停止")
+        return
+    
+    # 交互模式
     title_prefix = "🎵 " if use_emoji else ""
     print(f"{title_prefix}Windows 媒体播放记录器 v4.0")
     print("=" * 50)
@@ -149,7 +352,7 @@ def main():
     print(f"{support_prefix}支持所有兼容的媒体应用")
     print(f"{save_prefix}自动保存播放历史和统计信息")
     
-    logger.info("程序启动")
+    logger.info("程序启动 - 交互模式")
     
     # 检查自动启动
     if config.get("monitoring.auto_start", False):

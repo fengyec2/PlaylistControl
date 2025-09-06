@@ -1,4 +1,4 @@
-# media_monitor.py
+# media_monitor.py - 添加静默模式和停止功能
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -16,6 +16,10 @@ except ImportError:
 class MediaMonitor:
     def __init__(self):
         self.current_session = None
+        self.running = False
+        
+    def stop_monitoring(self):
+        """停止监控"""
         self.running = False
         
     async def get_media_info(self) -> Dict[str, Any]:
@@ -106,8 +110,11 @@ class MediaMonitor:
             logger.error(f"获取媒体信息时出错: {e}")
             return {}
             
-    def _format_media_output(self, media_info: Dict[str, Any], current_time: datetime) -> None:
+    def _format_media_output(self, media_info: Dict[str, Any], current_time: datetime, silent_mode: bool = False) -> None:
         """格式化媒体输出"""
+        if silent_mode:
+            return
+            
         use_emoji = config.should_use_emoji()
         
         print(f"[{current_time.strftime('%H:%M:%S')}] 正在播放:")
@@ -151,21 +158,22 @@ class MediaMonitor:
             progress_prefix = "⏱️ " if use_emoji else ""
             print(f"  {progress_prefix}进度: {position_str}/{duration_str}")
             
-    async def monitor_media(self, interval: int = None) -> None:
+    async def monitor_media(self, interval: int = None, silent_mode: bool = False) -> None:
         """监控媒体播放并记录"""
         if interval is None:
             interval = config.get_monitoring_interval()
             
-        print("开始监控媒体播放...")
-        print("支持所有兼容 Windows Media Transport Controls 的应用")
-        print("按 Ctrl+C 停止监控\n")
+        if not silent_mode:
+            print("开始监控媒体播放...")
+            print("支持所有兼容 Windows Media Transport Controls 的应用")
+            print("按 Ctrl+C 停止监控\n")
         
         last_song_info = None
         session_start = datetime.now()
         tracks_in_session = 0
         
         self.running = True
-        logger.info(f"开始媒体监控，间隔: {interval}秒")
+        logger.info(f"开始媒体监控，间隔: {interval}秒，静默模式: {silent_mode}")
         
         try:
             while self.running:
@@ -180,31 +188,36 @@ class MediaMonitor:
                        (last_song_info and last_song_info.get('status') != 'Playing' and media_info.get('status') == 'Playing'):
                         
                         current_time = datetime.now()
-                        self._format_media_output(media_info, current_time)
+                        self._format_media_output(media_info, current_time, silent_mode)
                         
                         # 保存到数据库
                         if db.save_media_info(media_info):
-                            save_prefix = "✅ " if config.should_use_emoji() else ""
-                            print(f"  {save_prefix}已保存到数据库")
+                            if not silent_mode:
+                                save_prefix = "✅ " if config.should_use_emoji() else ""
+                                print(f"  {save_prefix}已保存到数据库")
                             tracks_in_session += 1
                         else:
-                            skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
-                            print(f"  {skip_prefix}重复记录，跳过保存")
+                            if not silent_mode:
+                                skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
+                                print(f"  {skip_prefix}重复记录，跳过保存")
                             
-                        print("-" * 60)
+                        if not silent_mode:
+                            print("-" * 60)
                         last_song_info = media_info.copy()
                         
                 await asyncio.sleep(interval)
                 
         except KeyboardInterrupt:
-            print(f"\n监控已停止")
+            if not silent_mode:
+                print(f"\n监控已停止")
             
             # 保存会话信息
             if tracks_in_session > 0:
                 db.save_session_info(session_start, datetime.now(), 
                                    last_song_info.get('app_name', 'Unknown') if last_song_info else 'Unknown', 
                                    tracks_in_session)
-                print(f"本次会话播放了 {tracks_in_session} 首歌曲")
+                if not silent_mode:
+                    print(f"本次会话播放了 {tracks_in_session} 首歌曲")
             
         finally:
             self.running = False
