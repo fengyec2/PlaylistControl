@@ -10,7 +10,7 @@ class VersionInfo:
     VERSION_TUPLE = (2, 1, 0, 0)
     APP_NAME = "PlaylistControl"
     AUTHOR = "fengyec2"
-    COMPANY = "fengyec2"
+    COMPANY = "https://github.com/fengyec2/PlaylistControl"
     DESCRIPTION = "PlaylistControl"
     
     @classmethod
