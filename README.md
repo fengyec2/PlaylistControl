@@ -20,7 +20,7 @@
 
 ### 预编译版本（推荐）
 
-1. 从 [Releases](https://github.com/your-username/windows-media-tracker/releases) 页面下载最新版本
+1. 从 [Releases](https://github.com/fengyec2/windows-media-tracker/releases) 页面下载最新版本
 2. 解压到任意目录
 3. 运行 `MediaTracker.exe`
 
@@ -176,17 +176,20 @@ MediaTracker.exe --list-processes
 
 ```
 windows-media-tracker/
-├── main.py                 # 主程序入口
-├── config_manager.py       # 配置管理
+├── main.py                # 主程序入口
+├── config_manager.py      # 配置管理
+├── config_editor.py       # 配置编辑模块
 ├── database.py            # 数据库操作
 ├── media_monitor.py       # 媒体监控核心
 ├── display_utils.py       # 显示工具
+├── cli_parser.py          # 命令行参数解析模块
+├── system_utils.py        # 系统工具模块
+├── process_manager.py     # 进程管理模块
+├── run_modes.py           # 导出功能模块
+├── interactive_mode.py    # 命令行交互模式模块
 ├── logger.py              # 日志系统
 ├── build.py               # 打包脚本
-├── requirements.txt       # 依赖列表
 ├── config.json            # 配置文件（自动生成）
-├── LICENSE               # 许可证文件
-└── README.md             # 项目说明
 ```
 
 ## 🔧 开发与构建
@@ -196,7 +199,7 @@ windows-media-tracker/
 ```bash
 # 克隆项目
 git clone 
-cd 
+cd windows-media-tracker
 
 # 创建虚拟环境
 python -m venv .venv
