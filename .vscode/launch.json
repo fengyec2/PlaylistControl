@@ -19,6 +19,14 @@
             "program": "${workspaceFolder}/main.py",
             "args": ["-b"],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "守护进程模式",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["-d"],
+            "console": "integratedTerminal"
         }
     ]
 }

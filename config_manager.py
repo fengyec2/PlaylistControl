@@ -75,7 +75,10 @@ class ConfigManager:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     file_config = json.load(f)
                     self._merge_config(self.config, file_config)
-                print(f"✅ 配置文件已加载: {self.config_file}")
+                try:
+                    print(f"✅ 配置文件已加载: {self.config_file}")
+                except UnicodeEncodeError:
+                    print(f"[OK] 配置文件已加载: {self.config_file}")
             except Exception as e:
                 print(f"⚠️ 加载配置文件失败: {e}")
                 print("使用默认配置")
