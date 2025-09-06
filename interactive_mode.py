@@ -1,5 +1,5 @@
 import asyncio
-from config_manager import config
+from config_manager import config, version_info
 from display_utils import display
 from export_manager import ExportManager
 from config_editor import ConfigEditor
@@ -13,7 +13,7 @@ class InteractiveMode:
         """运行交互模式"""
         use_emoji = config.should_use_emoji()
         title_prefix = "🎵 " if use_emoji else ""
-        print(f"{title_prefix}Windows 媒体播放记录器 v4.0")
+        print(f"{title_prefix}{version_info.get_full_name()}")
         print("=" * 50)
         
         feature_prefix = "🚀 " if use_emoji else ""
