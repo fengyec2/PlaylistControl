@@ -14,15 +14,16 @@ def build_executable():
     
     # PyInstaller 参数
     args = [
-        'main.py',                    # 主程序文件
-        '--onefile',                  # 打包成单个exe文件
-        '--name=MediaTracker',        # exe文件名
-        '--icon=icon.ico',            # 图标文件（可选）
-        '--add-data=config.json;.',   # 包含配置文件
-        '--hidden-import=winsdk',     # 确保包含winsdk
-        '--hidden-import=sqlite3',    # 确保包含sqlite3
-        '--console',                  # 保留控制台窗口
-        '--clean',                    # 清理临时文件
+        'main.py',
+        '--onefile',
+        '--name=MediaTracker',
+        '--icon=icon.ico',  # 如果有图标文件
+        '--add-data=config.json;.',
+        '--hidden-import=winsdk',
+        '--hidden-import=sqlite3',
+        '--hidden-import=psutil',  # 添加psutil
+        '--console',
+        '--clean',
     ]
     
     PyInstaller.__main__.run(args)

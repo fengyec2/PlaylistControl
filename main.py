@@ -7,12 +7,34 @@ import argparse
 import signal
 import threading
 import time
+import subprocess
 from datetime import datetime
 from config_manager import config
 from database import db
 from media_monitor import monitor
 from display_utils import display
 from logger import logger
+
+def get_executable_dir():
+    """获取可执行文件所在目录"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的可执行文件
+        return os.path.dirname(sys.executable)
+    else:
+        # 普通 Python 脚本
+        return os.path.dirname(os.path.abspath(__file__))
+
+def get_pid_file_path(pid_file: str = None) -> str:
+    """获取 PID 文件的完整路径"""
+    if pid_file is None:
+        pid_file = "media_tracker.pid"
+    
+    # 如果已经是绝对路径，直接返回
+    if os.path.isabs(pid_file):
+        return pid_file
+    
+    # 否则放在可执行文件目录下
+    return os.path.join(get_executable_dir(), pid_file)
 
 def check_and_install_dependencies() -> bool:
     """检查并安装依赖"""
@@ -66,31 +88,119 @@ async def background_monitor(interval: int = None, silent: bool = False):
         if not silent:
             print(f"❌ 监控过程中出错: {e}")
 
+def _is_process_running(pid: int) -> bool:
+    """检查进程是否正在运行"""
+    try:
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ['tasklist', '/FI', f'PID eq {pid}'],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            return str(pid) in result.stdout
+        else:
+            # Unix-like系统
+            os.kill(pid, 0)  # 发送信号0检查进程是否存在
+            return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+def _terminate_process(pid: int) -> bool:
+    """终止指定PID的进程"""
+    try:
+        if sys.platform == "win32":
+            # 首先尝试正常终止
+            result = subprocess.run(
+                ['taskkill', '/PID', str(pid)],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            if result.returncode == 0:
+                return True
+            
+            # 如果正常终止失败，尝试强制终止
+            result = subprocess.run(
+                ['taskkill', '/PID', str(pid), '/F'],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            return result.returncode == 0
+        else:
+            # Unix-like系统
+            os.kill(pid, signal.SIGTERM)
+            # 等待一下，如果进程还在运行就强制杀死
+            time.sleep(2)
+            try:
+                os.kill(pid, 0)  # 检查进程是否还在
+                os.kill(pid, signal.SIGKILL)  # 强制杀死
+            except OSError:
+                pass  # 进程已经停止
+            return True
+    except Exception as e:
+        logger.error(f"终止进程失败: {e}")
+        return False
+
 def run_daemon_mode(interval: int = None, pid_file: str = None):
     """守护进程模式"""
     if interval is None:
         interval = config.get_monitoring_interval()
     
-    # 写入PID文件
-    if pid_file:
+    # 获取完整的PID文件路径
+    pid_file_path = get_pid_file_path(pid_file)
+    
+    # 检查是否已有实例在运行
+    if os.path.exists(pid_file_path):
         try:
-            with open(pid_file, 'w') as f:
-                f.write(str(os.getpid()))
-            logger.info(f"PID文件已创建: {pid_file}")
-        except Exception as e:
-            logger.error(f"创建PID文件失败: {e}")
+            with open(pid_file_path, 'r') as f:
+                existing_pid = int(f.read().strip())
+            if _is_process_running(existing_pid):
+                print(f"❌ 已有实例在运行 (PID: {existing_pid})")
+                print("💡 使用 --stop 参数停止现有实例")
+                return
+            else:
+                # 清理无效的PID文件
+                os.remove(pid_file_path)
+        except Exception:
+            # 如果读取失败，删除PID文件
+            try:
+                os.remove(pid_file_path)
+            except:
+                pass
+    
+    # 写入PID文件
+    try:
+        with open(pid_file_path, 'w') as f:
+            f.write(str(os.getpid()))
+        logger.info(f"PID文件已创建: {pid_file_path}")
+        print(f"🚀 守护进程已启动 (PID: {os.getpid()})")
+        print(f"💡 PID文件位置: {pid_file_path}")
+        if getattr(sys, 'frozen', False):
+            print(f"💡 使用 'MediaTracker.exe --stop' 停止程序")
+        else:
+            print(f"💡 使用 'python main.py --stop' 停止程序")
+    except Exception as e:
+        logger.error(f"创建PID文件失败: {e}")
+        print(f"❌ 创建PID文件失败: {e}")
+        return
     
     logger.info("守护进程模式启动")
     
     try:
         # 在守护进程模式下运行监控
         asyncio.run(background_monitor(interval, silent=True))
+    except KeyboardInterrupt:
+        logger.info("守护进程收到中断信号")
+    except Exception as e:
+        logger.error(f"守护进程异常: {e}")
     finally:
         # 清理PID文件
-        if pid_file and os.path.exists(pid_file):
+        if os.path.exists(pid_file_path):
             try:
-                os.remove(pid_file)
-                logger.info(f"PID文件已删除: {pid_file}")
+                os.remove(pid_file_path)
+                logger.info(f"PID文件已删除: {pid_file_path}")
             except Exception as e:
                 logger.error(f"删除PID文件失败: {e}")
 
@@ -226,7 +336,7 @@ def parse_arguments():
     mode_group.add_argument('-e', '--export', type=str, metavar='FILE',
                            help='导出播放历史到指定文件')
     mode_group.add_argument('--stop', action='store_true',
-                           help='停止后台运行的程序')
+                           help='停止后台运行的程序（自动查找PID文件）')
     
     # 监控参数
     parser.add_argument('-i', '--interval', type=int, metavar='SECONDS',
@@ -244,29 +354,142 @@ def parse_arguments():
     
     return parser.parse_args()
 
-def stop_background_process(pid_file: str = "media_tracker.pid"):
+def stop_background_process(pid_file: str = None):
     """停止后台运行的程序"""
-    if not os.path.exists(pid_file):
-        print("❌ 未找到运行中的后台程序")
+    # 获取可执行文件目录
+    exe_dir = get_executable_dir()
+    
+    # 如果没有指定PID文件，尝试查找可能的PID文件
+    if pid_file is None:
+        possible_files = [
+            "media_tracker.pid", 
+            "media_monitor.pid", 
+            "media_player_tracker.pid",
+            "MediaTracker.pid"  # 添加可执行文件名对应的PID文件
+        ]
+        
+        # 在可执行文件目录中查找
+        found_file = None
+        for file in possible_files:
+            full_path = os.path.join(exe_dir, file)
+            if os.path.exists(full_path):
+                found_file = full_path
+                break
+        
+        if found_file is None:
+            print("❌ 未找到运行中的后台程序")
+            print("💡 可能的原因：")
+            print("   - 程序未在后台运行")
+            print("   - PID文件被意外删除")
+            print("   - 使用了不同的PID文件路径")
+            print(f"💡 查找目录: {exe_dir}")
+            print(f"💡 查找的文件: {', '.join(possible_files)}")
+            
+            # 显示当前目录的所有 .pid 文件
+            try:
+                pid_files = [f for f in os.listdir(exe_dir) if f.endswith('.pid')]
+                if pid_files:
+                    print(f"💡 发现的PID文件: {', '.join(pid_files)}")
+                else:
+                    print("💡 当前目录没有发现任何 .pid 文件")
+            except Exception as e:
+                print(f"💡 无法读取目录: {e}")
+            
+            # 尝试查找并终止所有MediaTracker进程
+            if getattr(sys, 'frozen', False):
+                print("💡 尝试查找MediaTracker进程...")
+                try:
+                    result = subprocess.run(
+                        ['tasklist', '/FI', 'IMAGENAME eq MediaTracker.exe'],
+                        capture_output=True,
+                        text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+                    if 'MediaTracker.exe' in result.stdout:
+                        print("💡 发现MediaTracker进程，尝试强制终止...")
+                        subprocess.run(
+                            ['taskkill', '/IM', 'MediaTracker.exe', '/F'],
+                            capture_output=True,
+                            text=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW
+                        )
+                        print("✅ 已强制终止所有MediaTracker进程")
+                        return True
+                    else:
+                        print("💡 未发现MediaTracker进程")
+                except Exception as e:
+                    print(f"💡 查找进程时出错: {e}")
+            
+            return False
+        
+        pid_file_path = found_file
+    else:
+        pid_file_path = get_pid_file_path(pid_file)
+    
+    if not os.path.exists(pid_file_path):
+        print(f"❌ PID文件不存在: {pid_file_path}")
         return False
     
     try:
-        with open(pid_file, 'r') as f:
-            pid = int(f.read().strip())
+        with open(pid_file_path, 'r') as f:
+            pid_str = f.read().strip()
+            
+        if not pid_str:
+            print("❌ PID文件为空")
+            os.remove(pid_file_path)  # 清理空文件
+            return False
+            
+        pid = int(pid_str)
+        print(f"🔍 找到进程 PID: {pid}")
+        
+        # 检查进程是否存在
+        if not _is_process_running(pid):
+            print(f"❌ 进程 {pid} 已不存在，清理PID文件")
+            os.remove(pid_file_path)
+            return False
+        
+        print(f"🎯 正在终止进程 {pid}...")
         
         # 尝试终止进程
-        if sys.platform == "win32":
-            os.system(f"taskkill /PID {pid} /F")
+        success = _terminate_process(pid)
+        
+        if success:
+            # 等待一下确保进程完全停止
+            time.sleep(2)
+            
+            # 再次检查进程是否已停止
+            if _is_process_running(pid):
+                print(f"⚠️ 进程 {pid} 仍在运行，尝试强制终止...")
+                if sys.platform == "win32":
+                    subprocess.run(
+                        ['taskkill', '/PID', str(pid), '/F', '/T'],
+                        capture_output=True,
+                        text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+                time.sleep(1)
+            
+            # 删除PID文件
+            if os.path.exists(pid_file_path):
+                os.remove(pid_file_path)
+            
+            print(f"✅ 后台程序已停止 (PID: {pid})")
+            logger.info(f"后台程序已停止: PID {pid}")
+            return True
         else:
-            os.kill(pid, signal.SIGTERM)
-        
-        # 删除PID文件
-        os.remove(pid_file)
-        print(f"✅ 后台程序已停止 (PID: {pid})")
-        return True
-        
+            print(f"❌ 无法停止进程 {pid}")
+            return False
+            
+    except ValueError:
+        print("❌ PID文件内容无效")
+        return False
+    except PermissionError:
+        print("❌ 权限不足，无法停止进程")
+        print("💡 请以管理员身份运行")
+        return False
     except Exception as e:
         print(f"❌ 停止后台程序失败: {e}")
+        logger.error(f"停止后台程序失败: {e}")
         return False
 
 def main():
@@ -274,7 +497,7 @@ def main():
     
     # 处理停止命令
     if args.stop:
-        stop_background_process(args.pid_file or "media_tracker.pid")
+        stop_background_process(args.pid_file)
         return
     
     if not check_and_install_dependencies():
@@ -327,7 +550,7 @@ def main():
     if args.daemon:
         # 守护进程模式
         setup_signal_handlers()
-        run_daemon_mode(args.interval, args.pid_file or "media_tracker.pid")
+        run_daemon_mode(args.interval, args.pid_file)
         return
     
     if args.background:
