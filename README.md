@@ -1,4 +1,4 @@
-# Windows Media Tracker
+# PlaylistControl
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -20,9 +20,9 @@
 
 ### 预编译版本（推荐）
 
-1. 从 [Releases](https://github.com/fengyec2/windows-media-tracker/releases) 页面下载最新版本
+1. 从 [Releases](https://github.com/fengyec2/PlaylistControl/releases) 页面下载最新版本
 2. 解压到任意目录
-3. 运行 `MediaTracker.exe`
+3. 运行 `PlaylistControl.exe`
 
 ### 从源码安装
 
@@ -36,7 +36,7 @@
 1. **克隆仓库**
 ```bash
 git clone https://github.com/fengyec2/PlaylistControl.git
-cd windows-media-tracker
+cd PlaylistControl
 ```
 
 2. **安装依赖**
@@ -55,26 +55,26 @@ python main.py
 
 ```bash
 # 交互模式（默认）- 实时显示正在播放的媒体信息
-MediaTracker.exe
+PlaylistControl.exe
 
 # 后台监控模式 - 在后台持续监控并记录播放历史
-MediaTracker.exe -b
+PlaylistControl.exe -b
 
 # 守护进程模式 - 静默运行，完全在后台工作
-MediaTracker.exe -d
+PlaylistControl.exe -d
 ```
 
 ### 查看播放历史
 
 ```bash
 # 显示最近播放的 20 首歌曲
-MediaTracker.exe -r 20
+PlaylistControl.exe -r 20
 
 # 显示播放统计信息
-MediaTracker.exe -s
+PlaylistControl.exe -s
 
 # 导出播放历史到 JSON 文件
-MediaTracker.exe -e playlist.json
+PlaylistControl.exe -e playlist.json
 ```
 
 ### 守护进程管理
@@ -82,19 +82,19 @@ MediaTracker.exe -e playlist.json
 **启动守护进程**:
 ```bash
 # 使用默认 PID 文件启动
-MediaTracker.exe -d
+PlaylistControl.exe -d
 
 # 指定 PID 文件路径启动
-MediaTracker.exe -d --pid-file daemon.pid
+PlaylistControl.exe -d --pid-file daemon.pid
 ```
 
 **停止守护进程**:
 ```bash
 # 自动查找并停止后台运行的程序
-MediaTracker.exe --stop
+PlaylistControl.exe --stop
 
 # 使用指定 PID 文件停止
-MediaTracker.exe --stop --pid-file daemon.pid
+PlaylistControl.exe --stop --pid-file daemon.pid
 ```
 
 ### 高级选项
@@ -102,25 +102,25 @@ MediaTracker.exe --stop --pid-file daemon.pid
 **监控设置**:
 ```bash
 # 自定义监控间隔（秒）
-MediaTracker.exe -b -i 5
+PlaylistControl.exe -b -i 5
 
 # 设置 5 秒监控间隔的守护进程
-MediaTracker.exe -d -i 5 --pid-file daemon.pid
+PlaylistControl.exe -d -i 5 --pid-file daemon.pid
 ```
 
 **显示选项**:
 ```bash
 # 静默模式 - 减少输出信息
-MediaTracker.exe -q
+PlaylistControl.exe -q
 
 # 详细输出模式 - 显示更多调试信息
-MediaTracker.exe -v
+PlaylistControl.exe -v
 
 # 禁用 Emoji 显示 - 纯文本输出
-MediaTracker.exe --no-emoji
+PlaylistControl.exe --no-emoji
 
 # 组合使用多个选项
-MediaTracker.exe -b -q --no-emoji -i 10
+PlaylistControl.exe -b -q --no-emoji -i 10
 ```
 
 ### 参数详解
@@ -220,7 +220,7 @@ MediaTracker.exe -b -q --no-emoji -i 10
 ## 🏗️ 项目结构
 
 ```
-windows-media-tracker/
+PlaylistControl/
 ├── main.py                # 主程序入口
 ├── config_manager.py      # 配置管理
 ├── config_editor.py       # 配置编辑模块
@@ -245,7 +245,7 @@ windows-media-tracker/
 ```bash
 # 克隆项目
 git clone https://github.com/fengyec2/PlaylistControl.git
-cd windows-media-tracker
+cd PlaylistControl
 
 # 创建虚拟环境
 python -m venv .venv
@@ -261,7 +261,7 @@ pip install -r requirements.txt
 python build.py
 ```
 
-构建完成后，可执行文件将位于 `dist/MediaTracker.exe`
+构建完成后，可执行文件将位于 `dist/PlaylistControl.exe`
 
 
 ## 📋 版本历史
