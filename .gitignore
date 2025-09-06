@@ -183,4 +183,5 @@ cython_debug/
 # PlaylistControl
 config.json
 media_history.db
+media_history.json
 /backups
