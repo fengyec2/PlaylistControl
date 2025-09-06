@@ -35,7 +35,7 @@
 
 1. **克隆仓库**
 ```bash
-git clone 
+git clone https://github.com/fengyec2/PlaylistControl.git
 cd windows-media-tracker
 ```
 
@@ -198,7 +198,7 @@ windows-media-tracker/
 
 ```bash
 # 克隆项目
-git clone 
+git clone https://github.com/fengyec2/PlaylistControl.git
 cd windows-media-tracker
 
 # 创建虚拟环境
