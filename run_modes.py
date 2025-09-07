@@ -39,12 +39,13 @@ class RunModes:
         """守护进程模式"""
         if interval is None:
             interval = config.get_monitoring_interval()
-    
+
         pid_file_path = get_pid_file_path(pid_file)
-    
+        
+        safe_print(f"🔧 调试：当前工作目录: {os.getcwd()}")
         safe_print(f"🔧 调试：PID文件路径: {pid_file_path}")
-    
-    # 检查是否已有实例在运行
+
+        # 检查是否已有实例在运行
         if os.path.exists(pid_file_path):
             try:
                 with open(pid_file_path, 'r') as f:
@@ -65,10 +66,12 @@ class RunModes:
         # 构建启动命令
         if getattr(sys, 'frozen', False):
             cmd = [sys.executable]
-            safe_print(f"🔧 调试：打包模式，可执行文件: {sys.executable}")
+            # 确保工作目录
+            work_dir = Path(sys.executable).parent
+            safe_print(f"🔧 调试：打包模式，exe: {sys.executable}")
+            safe_print(f"🔧 调试：工作目录将设为: {work_dir}")
         else:
             main_script = Path(__file__).parent / 'main.py'
-            # 使用pythonw.exe以避免显示新的终端窗口
             python_exe = sys.executable
             if sys.platform == 'win32' and python_exe.endswith('python.exe'):
                 pythonw_exe = python_exe.replace('python.exe', 'pythonw.exe')
@@ -77,29 +80,30 @@ class RunModes:
                     safe_print(f"🔧 调试：使用pythonw.exe避免显示终端")
             
             cmd = [python_exe, str(main_script)]
-            safe_print(f"🔧 调试：脚本模式，Python: {python_exe}, 脚本: {main_script}")
+            work_dir = Path(__file__).parent
+            safe_print(f"🔧 调试：脚本模式，Python: {python_exe}")
+            safe_print(f"🔧 调试：工作目录将设为: {work_dir}")
         
         cmd.extend(['-i', str(interval)])
-    
+        
         if pid_file:
             cmd.extend(['--pid-file', pid_file])
-    
+        
         safe_print(f"🔧 启动命令: {' '.join(cmd)}")
 
         # 设置环境变量
         env = os.environ.copy()
         env['MEDIA_TRACKER_DAEMON_WORKER'] = '1'
         env['MEDIA_TRACKER_PID_FILE'] = pid_file_path
-    
+        
         safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_DAEMON_WORKER=1")
         safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_PID_FILE={pid_file_path}")
 
         # 创建调试日志文件
-        debug_log = os.path.join(os.path.dirname(pid_file_path), 'daemon_debug.log')
-    
+        debug_log = work_dir / 'daemon_debug.log'
+        
         try:
             if sys.platform == 'win32':
-                # Windows下启动完全无窗口的进程
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
@@ -112,7 +116,8 @@ class RunModes:
                         stderr=debug_file,
                         startupinfo=startupinfo,
                         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
-                        env=env
+                        env=env,
+                        cwd=str(work_dir)  # 重要：设置工作目录
                     )
             else:
                 with open(debug_log, 'w', encoding='utf-8', errors='replace') as debug_file:
@@ -122,16 +127,18 @@ class RunModes:
                         stdout=debug_file,
                         stderr=debug_file,
                         preexec_fn=os.setsid,
-                        env=env
+                        env=env,
+                        cwd=str(work_dir)  # 重要：设置工作目录
                     )
-        
+            
             safe_print(f"🔧 调试：进程已启动，PID: {process.pid}")
+            safe_print(f"🔧 调试：工作目录: {work_dir}")
             safe_print(f"🔧 调试：调试日志文件: {debug_log}")
-        
+            
             # 等待检查进程状态
             time.sleep(3)
             return_code = process.poll()
-        
+            
             if return_code is not None:
                 safe_print(f"❌ 守护进程启动失败，退出码: {return_code}")
                 try:
@@ -143,7 +150,7 @@ class RunModes:
                             break
                         except UnicodeDecodeError:
                             continue
-                        
+                    
                     if debug_content and debug_content.strip():
                         safe_print(f"📋 调试信息:\n{debug_content}")
                     else:
@@ -156,6 +163,7 @@ class RunModes:
             else:
                 safe_print(f"🚀 守护进程已启动 (PID: {process.pid})")
                 safe_print(f"💡 PID文件位置: {pid_file_path}")
+                safe_print(f"💡 配置和数据文件将保存在: {work_dir}")
                 safe_print(f"💡 使用 'python main.py --stop' 停止守护进程")
                 
                 # 写入PID文件
@@ -168,22 +176,20 @@ class RunModes:
                 if sys.platform == 'win32':
                     try:
                         import ctypes
-                        # 获取当前控制台窗口句柄
                         hwnd = ctypes.windll.kernel32.GetConsoleWindow()
                         if hwnd != 0:
-                            # 强制关闭控制台窗口
-                            ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                            ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)
                     except:
                         pass
-            
-                # 正常退出
-                sys.exit(0)
                 
+                sys.exit(0)
+                    
         except Exception as e:
             safe_print(f"❌ 启动守护进程失败: {e}")
             import traceback
             traceback.print_exc()
             sys.exit(1)
+
 
 
     def daemon_worker(self, interval: int, pid_file_path: str):

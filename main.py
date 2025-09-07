@@ -1,6 +1,7 @@
 import sys
 import os
 from safe_print import safe_print, init_console_encoding
+from pathlib import Path
 
 # 在最开始初始化编码
 init_console_encoding()
@@ -15,6 +16,20 @@ from config_manager import config
 from media_monitor import monitor
 from display_utils import display
 from logger import logger
+
+# 确保工作目录正确
+if getattr(sys, 'frozen', False):
+    # 打包后的exe，切换到exe所在目录
+    exe_dir = Path(sys.executable).parent
+    os.chdir(exe_dir)
+    safe_print(f"🔧 调试：已切换工作目录到: {exe_dir}")
+else:
+    # 开发模式，切换到脚本所在目录
+    script_dir = Path(__file__).parent
+    os.chdir(script_dir)
+    safe_print(f"🔧 调试：已切换工作目录到: {script_dir}")
+
+safe_print(f"🔧 调试：当前工作目录: {os.getcwd()}")
 
 def main():
     try:
