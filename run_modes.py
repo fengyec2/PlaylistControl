@@ -41,17 +41,17 @@ class RunModes:
             interval = config.get_monitoring_interval()
     
         pid_file_path = get_pid_file_path(pid_file)
-        
+    
         safe_print(f"🔧 调试：PID文件路径: {pid_file_path}")
     
-        # 检查是否已有实例在运行
+    # 检查是否已有实例在运行
         if os.path.exists(pid_file_path):
             try:
                 with open(pid_file_path, 'r') as f:
                     existing_pid = int(f.read().strip())
                 if is_process_running(existing_pid):
                     safe_print(f"❌ 已有实例在运行 (PID: {existing_pid})")
-                    return
+                    sys.exit(1)
                 else:
                     os.remove(pid_file_path)
                     safe_print(f"🔧 调试：删除了旧的PID文件")
@@ -61,47 +61,49 @@ class RunModes:
                     os.remove(pid_file_path)
                 except:
                     pass
-    
-        # 构建启动命令 - 不再传递 -d 参数给子进程！
+
+        # 构建启动命令
         if getattr(sys, 'frozen', False):
-            # 打包后的exe文件
             cmd = [sys.executable]
             safe_print(f"🔧 调试：打包模式，可执行文件: {sys.executable}")
         else:
-            # Python脚本
             main_script = Path(__file__).parent / 'main.py'
-            cmd = [sys.executable, str(main_script)]
-            safe_print(f"🔧 调试：脚本模式，Python: {sys.executable}, 脚本: {main_script}")
+            # 使用pythonw.exe以避免显示新的终端窗口
+            python_exe = sys.executable
+            if sys.platform == 'win32' and python_exe.endswith('python.exe'):
+                pythonw_exe = python_exe.replace('python.exe', 'pythonw.exe')
+                if os.path.exists(pythonw_exe):
+                    python_exe = pythonw_exe
+                    safe_print(f"🔧 调试：使用pythonw.exe避免显示终端")
+            
+            cmd = [python_exe, str(main_script)]
+            safe_print(f"🔧 调试：脚本模式，Python: {python_exe}, 脚本: {main_script}")
         
-        # 注意：不添加 -d 参数，因为子进程通过环境变量识别
-        # 只添加间隔参数
         cmd.extend(['-i', str(interval)])
-        
-        # 如果有自定义PID文件路径
+    
         if pid_file:
             cmd.extend(['--pid-file', pid_file])
-        
-        safe_print(f"🔧 启动命令: {' '.join(cmd)}")
     
-        # 设置环境变量标识这是子进程
+        safe_print(f"🔧 启动命令: {' '.join(cmd)}")
+
+        # 设置环境变量
         env = os.environ.copy()
         env['MEDIA_TRACKER_DAEMON_WORKER'] = '1'
         env['MEDIA_TRACKER_PID_FILE'] = pid_file_path
-        
+    
         safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_DAEMON_WORKER=1")
         safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_PID_FILE={pid_file_path}")
-    
-        # 创建临时日志文件用于调试
+
+        # 创建调试日志文件
         debug_log = os.path.join(os.path.dirname(pid_file_path), 'daemon_debug.log')
-        
+    
         try:
             if sys.platform == 'win32':
-                # Windows下启动无窗口进程
+                # Windows下启动完全无窗口的进程
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
                 
-                # 为了调试，暂时将stderr重定向到文件，使用正确的编码
                 with open(debug_log, 'w', encoding='utf-8', errors='replace') as debug_file:
                     process = subprocess.Popen(
                         cmd,
@@ -113,7 +115,6 @@ class RunModes:
                         env=env
                     )
             else:
-                # Linux/Mac下的守护进程
                 with open(debug_log, 'w', encoding='utf-8', errors='replace') as debug_file:
                     process = subprocess.Popen(
                         cmd,
@@ -123,17 +124,16 @@ class RunModes:
                         preexec_fn=os.setsid,
                         env=env
                     )
-            
+        
             safe_print(f"🔧 调试：进程已启动，PID: {process.pid}")
             safe_print(f"🔧 调试：调试日志文件: {debug_log}")
-            
-            # 等待更长时间检查进程状态
+        
+            # 等待检查进程状态
             time.sleep(3)
             return_code = process.poll()
-            
+        
             if return_code is not None:
                 safe_print(f"❌ 守护进程启动失败，退出码: {return_code}")
-                # 读取调试日志，使用多种编码尝试
                 try:
                     debug_content = None
                     for encoding in ['utf-8', 'gbk', 'cp1252', 'latin1']:
@@ -143,7 +143,7 @@ class RunModes:
                             break
                         except UnicodeDecodeError:
                             continue
-                    
+                        
                     if debug_content and debug_content.strip():
                         safe_print(f"📋 调试信息:\n{debug_content}")
                     else:
@@ -151,21 +151,40 @@ class RunModes:
                         
                 except Exception as e:
                     safe_print(f"🔧 无法读取调试日志: {e}")
-                return
+                
+                sys.exit(1)
             else:
                 safe_print(f"🚀 守护进程已启动 (PID: {process.pid})")
                 safe_print(f"💡 PID文件位置: {pid_file_path}")
-                safe_print(f"💡 调试日志: {debug_log}")
+                safe_print(f"💡 使用 'python main.py --stop' 停止守护进程")
                 
                 # 写入PID文件
                 with open(pid_file_path, 'w') as f:
                     f.write(str(process.pid))
-                    
+                
+                safe_print("✅ 守护进程启动成功，主进程即将退出")
+                
+                # Windows特殊处理：强制关闭当前控制台窗口
+                if sys.platform == 'win32':
+                    try:
+                        import ctypes
+                        # 获取当前控制台窗口句柄
+                        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+                        if hwnd != 0:
+                            # 强制关闭控制台窗口
+                            ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                    except:
+                        pass
+            
+                # 正常退出
+                sys.exit(0)
+                
         except Exception as e:
             safe_print(f"❌ 启动守护进程失败: {e}")
             import traceback
             traceback.print_exc()
-            return
+            sys.exit(1)
+
 
     def daemon_worker(self, interval: int, pid_file_path: str):
         """守护进程工作函数"""
