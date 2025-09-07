@@ -3,17 +3,39 @@ import sys
 import signal
 import subprocess
 import time
-from logger import logger
+# from logger import logger
 from safe_print import safe_print
 
 def get_executable_dir():
     """获取可执行文件所在目录"""
     if getattr(sys, 'frozen', False):
         # PyInstaller 打包后的可执行文件
-        return os.path.dirname(sys.executable)
+        exe_dir = os.path.dirname(sys.executable)
+        safe_print(f"🔧 调试：打包模式，exe目录: {exe_dir}")
+        return exe_dir
     else:
         # 普通 Python 脚本
-        return os.path.dirname(os.path.abspath(__file__))
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        safe_print(f"🔧 调试：脚本模式，脚本目录: {script_dir}")
+        return script_dir
+
+def get_config_file_path():
+    """获取配置文件路径"""
+    config_path = os.path.join(get_executable_dir(), 'config.json')
+    safe_print(f"🔧 调试：配置文件路径: {config_path}")
+    return config_path
+
+def get_database_path():
+    """获取数据库文件路径"""
+    db_path = os.path.join(get_executable_dir(), 'media_tracking.db')
+    safe_print(f"🔧 调试：数据库路径: {db_path}")
+    return db_path
+
+def get_log_file_path():
+    """获取日志文件路径"""
+    log_path = os.path.join(get_executable_dir(), 'media_tracker.log')
+    safe_print(f"🔧 调试：日志文件路径: {log_path}")
+    return log_path
 
 def get_pid_file_path(pid_file: str = None) -> str:
     """获取 PID 文件的完整路径"""
@@ -22,10 +44,13 @@ def get_pid_file_path(pid_file: str = None) -> str:
     
     # 如果已经是绝对路径，直接返回
     if os.path.isabs(pid_file):
-        return pid_file
+        pid_path = pid_file
+    else:
+        # 否则放在可执行文件目录下
+        pid_path = os.path.join(get_executable_dir(), pid_file)
     
-    # 否则放在可执行文件目录下
-    return os.path.join(get_executable_dir(), pid_file)
+    safe_print(f"🔧 调试：PID文件路径: {pid_path}")
+    return pid_path
 
 def check_and_install_dependencies() -> bool:
     """检查并安装依赖"""
@@ -110,5 +135,5 @@ def terminate_process(pid: int) -> bool:
                 pass  # 进程已经停止
             return True
     except Exception as e:
-        logger.error(f"终止进程失败: {e}")
+        safe_print(f"终止进程失败: {e}")
         return False

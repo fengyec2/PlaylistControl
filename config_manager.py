@@ -6,8 +6,8 @@ from safe_print import safe_print
 
 class VersionInfo:
     """版本信息类 - 不会被保存到配置文件"""
-    VERSION = "2.1.1"
-    VERSION_TUPLE = (2, 1, 1, 0)
+    VERSION = "2.2.1"
+    VERSION_TUPLE = (2, 2, 1, 0)
     APP_NAME = "PlaylistControl"
     AUTHOR = "fengyec2"
     COMPANY = "https://github.com/fengyec2/PlaylistControl"
@@ -39,8 +39,29 @@ class VersionInfo:
         return f"{cls.APP_NAME} v{cls.VERSION}"
 
 class ConfigManager:
-    def __init__(self, config_file: str = "config.json"):
-        self.config_file = config_file
+    def __init__(self, config_file: str = None):
+        # 导入放在这里避免循环导入
+        from system_utils import get_config_file_path, get_database_path, get_log_file_path
+        
+        # 如果没有指定配置文件路径，使用默认路径
+        if config_file is None:
+            self.config_file = get_config_file_path()
+        else:
+            # 如果指定了配置文件，但不是绝对路径，则相对于可执行文件目录
+            if not os.path.isabs(config_file):
+                from system_utils import get_executable_dir
+                self.config_file = os.path.join(get_executable_dir(), config_file)
+            else:
+                self.config_file = config_file
+        
+        # 获取其他文件的正确路径
+        self.database_path = get_database_path()
+        self.log_file_path = get_log_file_path()
+        
+        safe_print(f"🔧 调试：配置文件路径: {self.config_file}")
+        safe_print(f"🔧 调试：数据库路径: {self.database_path}")
+        safe_print(f"🔧 调试：日志文件路径: {self.log_file_path}")
+        
         self.config = self._load_default_config()
         self.load_config()
         
@@ -48,7 +69,7 @@ class ConfigManager:
         """加载默认配置"""
         return {
             "database": {
-                "path": "media_history.db",
+                "path": self.database_path,  # 使用正确的数据库路径
                 "auto_backup": True,
                 "backup_interval_days": 7
             },
@@ -96,7 +117,7 @@ class ConfigManager:
             "logging": {
                 "enabled": True,
                 "level": "INFO",
-                "file": "media_tracker.log",
+                "file": self.log_file_path,  # 使用正确的日志文件路径
                 "max_size_mb": 10,
                 "backup_count": 3
             }
@@ -135,6 +156,11 @@ class ConfigManager:
     def save_config(self) -> None:
         """保存配置到文件"""
         try:
+            # 确保配置文件目录存在
+            config_dir = os.path.dirname(self.config_file)
+            if config_dir and not os.path.exists(config_dir):
+                os.makedirs(config_dir, exist_ok=True)
+                
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             safe_print(f"💾 配置已保存到: {self.config_file}")
@@ -190,6 +216,34 @@ class ConfigManager:
         min_interval = self.get("monitoring.min_interval", 1)
         max_interval = self.get("monitoring.max_interval", 60)
         return max(min_interval, min(max_interval, interval))
+    
+    def get_database_path(self) -> str:
+        """获取数据库文件路径"""
+        # 优先使用配置中的路径，如果是相对路径则相对于可执行文件目录
+        db_path = self.get("database.path", self.database_path)
+        if not os.path.isabs(db_path):
+            from system_utils import get_executable_dir
+            db_path = os.path.join(get_executable_dir(), db_path)
+        return db_path
+    
+    def get_log_file_path(self) -> str:
+        """获取日志文件路径"""
+        # 优先使用配置中的路径，如果是相对路径则相对于可执行文件目录
+        log_path = self.get("logging.file", self.log_file_path)
+        if not os.path.isabs(log_path):
+            from system_utils import get_executable_dir
+            log_path = os.path.join(get_executable_dir(), log_path)
+        return log_path
+    
+    def get_export_file_path(self, filename: str = None) -> str:
+        """获取导出文件路径"""
+        if filename is None:
+            filename = self.get("export.default_filename", "media_history.json")
+        
+        if not os.path.isabs(filename):
+            from system_utils import get_executable_dir
+            filename = os.path.join(get_executable_dir(), filename)
+        return filename
 
 # 全局配置实例
 config = ConfigManager()

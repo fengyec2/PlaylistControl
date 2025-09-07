@@ -9,7 +9,13 @@ from logger import logger
 
 class DatabaseManager:
     def __init__(self):
-        self.db_path = config.get("database.path", "media_history.db")
+        # 使用config的get_database_path()方法获取正确的数据库路径
+        self.db_path = config.get_database_path()
+        
+        # 添加调试输出
+        from safe_print import safe_print
+        safe_print(f"🔧 调试：数据库管理器使用路径: {self.db_path}")
+        
         self.init_database()
         self._check_backup()
         
@@ -81,7 +87,10 @@ class DatabaseManager:
             return
             
         backup_interval = config.get("database.backup_interval_days", 7)
-        backup_dir = "backups"
+        
+        # 使用可执行文件目录下的backups文件夹
+        from system_utils import get_executable_dir
+        backup_dir = os.path.join(get_executable_dir(), "backups")
         
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
@@ -103,15 +112,58 @@ class DatabaseManager:
     def _create_backup(self) -> None:
         """创建数据库备份"""
         try:
-            backup_dir = "backups"
+            # 使用可执行文件目录下的backups文件夹
+            from system_utils import get_executable_dir
+            backup_dir = os.path.join(get_executable_dir(), "backups")
+            
+            # 确保备份目录存在
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+                
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_file = os.path.join(backup_dir, f"media_history_{timestamp}.db")
             
             shutil.copy2(self.db_path, backup_file)
-            logger.info(f"数据库备份已创建: {backup_file}")
+            
+            # 使用safe_print而不是logger
+            from safe_print import safe_print
+            safe_print(f"💾 数据库备份已创建: {backup_file}")
+            
+            # 清理旧备份文件（可选）
+            self._cleanup_old_backups(backup_dir)
             
         except Exception as e:
-            logger.error(f"创建数据库备份失败: {e}")
+            from safe_print import safe_print
+            safe_print(f"❌ 创建数据库备份失败: {e}")
+
+    def _cleanup_old_backups(self, backup_dir: str, keep_count: int = 10) -> None:
+        """清理旧的备份文件，只保留最新的几个"""
+        try:
+            backup_files = [f for f in os.listdir(backup_dir) if f.startswith("media_history_") and f.endswith(".db")]
+            
+            if len(backup_files) <= keep_count:
+                return
+                
+            # 按修改时间排序，保留最新的文件
+            backup_files_with_time = []
+            for f in backup_files:
+                file_path = os.path.join(backup_dir, f)
+                mtime = os.path.getmtime(file_path)
+                backup_files_with_time.append((mtime, f, file_path))
+            
+            # 按时间倒序排序
+            backup_files_with_time.sort(reverse=True)
+            
+            # 删除多余的备份文件
+            for _, filename, file_path in backup_files_with_time[keep_count:]:
+                os.remove(file_path)
+                from safe_print import safe_print
+                safe_print(f"🗑️ 已删除旧备份: {filename}")
+                
+        except Exception as e:
+            from safe_print import safe_print
+            safe_print(f"⚠️ 清理旧备份文件失败: {e}")
+
             
     def save_media_info(self, media_info: Dict[str, Any]) -> bool:
         """保存媒体信息到数据库"""
