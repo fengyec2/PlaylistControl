@@ -3,6 +3,7 @@ import PyInstaller.__main__
 import os
 import shutil
 from config_manager import version_info
+from safe_print import safe_print
 
 def create_version_file():
     """创建版本信息文件"""
@@ -42,7 +43,7 @@ VSVersionInfo(
     with open('version_info.txt', 'w', encoding='utf-8') as f:
         f.write(version_info_content)
     
-    print("✅ 版本信息文件已创建")
+    safe_print("✅ 版本信息文件已创建")
 
 def build_executable():
     """构建可执行文件"""
@@ -77,9 +78,9 @@ def build_executable():
     if os.path.exists('version_info.txt'):
         os.remove('version_info.txt')
     
-    print("✅ 打包完成！")
-    print(f"📁 可执行文件位置: dist/{version_info.APP_NAME}.exe")
-    print(f"ℹ️  程序版本: {version_info.get_full_name()}")
+    safe_print("✅ 打包完成！")
+    safe_print(f"📁 可执行文件位置: dist/{version_info.APP_NAME}.exe")
+    safe_print(f"ℹ️  程序版本: {version_info.get_full_name()}")
 
 if __name__ == "__main__":
     build_executable()

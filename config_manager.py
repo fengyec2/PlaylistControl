@@ -2,12 +2,12 @@
 import json
 import os
 from typing import Dict, Any, Optional
-from datetime import datetime
+from safe_print import safe_print
 
 class VersionInfo:
     """版本信息类 - 不会被保存到配置文件"""
-    VERSION = "2.1.0"
-    VERSION_TUPLE = (2, 1, 0, 0)
+    VERSION = "2.1.1"
+    VERSION_TUPLE = (2, 1, 1, 0)
     APP_NAME = "PlaylistControl"
     AUTHOR = "fengyec2"
     COMPANY = "https://github.com/fengyec2/PlaylistControl"
@@ -110,16 +110,16 @@ class ConfigManager:
                     file_config = json.load(f)
                     self._merge_config(self.config, file_config)
                 try:
-                    print(f"✅ 配置文件已加载: {self.config_file}")
+                    safe_print(f"✅ 配置文件已加载: {self.config_file}")
                 except UnicodeEncodeError:
-                    print(f"[OK] 配置文件已加载: {self.config_file}")
+                    safe_print(f"[OK] 配置文件已加载: {self.config_file}")
             except Exception as e:
-                print(f"⚠️ 加载配置文件失败: {e}")
-                print("使用默认配置")
+                safe_print(f"⚠️ 加载配置文件失败: {e}")
+                safe_print("使用默认配置")
         else:
             # 创建默认配置文件
             self.save_config()
-            print(f"📄 已创建默认配置文件: {self.config_file}")
+            safe_print(f"📄 已创建默认配置文件: {self.config_file}")
             
     def _merge_config(self, default: Dict[str, Any], override: Dict[str, Any]) -> None:
         """递归合并配置"""
@@ -137,9 +137,9 @@ class ConfigManager:
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
-            print(f"💾 配置已保存到: {self.config_file}")
+            safe_print(f"💾 配置已保存到: {self.config_file}")
         except Exception as e:
-            print(f"❌ 保存配置失败: {e}")
+            safe_print(f"❌ 保存配置失败: {e}")
             
     def get(self, key_path: str, default: Any = None) -> Any:
         """获取配置值，支持点号分隔的路径"""

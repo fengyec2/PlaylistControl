@@ -2,6 +2,7 @@ import json
 from config_manager import config
 from database import db
 from logger import logger
+from safe_print import safe_print
 
 class ExportManager:
     @staticmethod
@@ -14,7 +15,7 @@ class ExportManager:
             export_data = db.export_data()
             
             if not export_data:
-                print("❌ 没有数据可导出")
+                safe_print("❌ 没有数据可导出")
                 return
                 
             with open(filename, 'w', encoding='utf-8') as f:
@@ -24,13 +25,13 @@ class ExportManager:
             success_prefix = "✅ " if use_emoji else ""
             stats_prefix = "📊 " if use_emoji else ""
             
-            print(f"{success_prefix}播放历史已导出到 {filename}")
-            print(f"{stats_prefix}包含 {export_data['export_info']['total_tracks']} 条播放记录和 {export_data['export_info']['total_sessions']} 个播放会话")
+            safe_print(f"{success_prefix}播放历史已导出到 {filename}")
+            safe_print(f"{stats_prefix}包含 {export_data['export_info']['total_tracks']} 条播放记录和 {export_data['export_info']['total_sessions']} 个播放会话")
             
             logger.info(f"导出播放历史到 {filename}")
             
         except Exception as e:
-            print(f"❌ 导出失败: {e}")
+            safe_print(f"❌ 导出失败: {e}")
             logger.error(f"导出失败: {e}")
 
     @staticmethod
@@ -39,7 +40,7 @@ class ExportManager:
         try:
             export_data = db.export_data()
             if not export_data:
-                print("❌ 没有数据可导出")
+                safe_print("❌ 没有数据可导出")
                 return False
                 
             with open(filename, 'w', encoding='utf-8') as f:
@@ -49,13 +50,13 @@ class ExportManager:
             success_prefix = "✅ " if use_emoji else ""
             stats_prefix = "📊 " if use_emoji else ""
             
-            print(f"{success_prefix}播放历史已导出到 {filename}")
-            print(f"{stats_prefix}包含 {export_data['export_info']['total_tracks']} 条播放记录")
+            safe_print(f"{success_prefix}播放历史已导出到 {filename}")
+            safe_print(f"{stats_prefix}包含 {export_data['export_info']['total_tracks']} 条播放记录")
             
             logger.info(f"导出播放历史到 {filename}")
             return True
             
         except Exception as e:
-            print(f"❌ 导出失败: {e}")
+            safe_print(f"❌ 导出失败: {e}")
             logger.error(f"导出失败: {e}")
             return False

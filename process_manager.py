@@ -4,6 +4,7 @@ import time
 import subprocess
 from system_utils import get_executable_dir, get_pid_file_path, is_process_running, terminate_process
 from logger import logger
+from safe_print import safe_print
 
 class ProcessManager:
     @staticmethod
@@ -30,27 +31,27 @@ class ProcessManager:
                     break
             
             if found_file is None:
-                print("❌ 未找到运行中的后台程序")
-                print("💡 可能的原因：")
-                print("   - 程序未在后台运行")
-                print("   - PID文件被意外删除")
-                print("   - 使用了不同的PID文件路径")
-                print(f"💡 查找目录: {exe_dir}")
-                print(f"💡 查找的文件: {', '.join(possible_files)}")
+                safe_print("❌ 未找到运行中的后台程序")
+                safe_print("💡 可能的原因：")
+                safe_print("   - 程序未在后台运行")
+                safe_print("   - PID文件被意外删除")
+                safe_print("   - 使用了不同的PID文件路径")
+                safe_print(f"💡 查找目录: {exe_dir}")
+                safe_print(f"💡 查找的文件: {', '.join(possible_files)}")
                 
                 # 显示当前目录的所有 .pid 文件
                 try:
                     pid_files = [f for f in os.listdir(exe_dir) if f.endswith('.pid')]
                     if pid_files:
-                        print(f"💡 发现的PID文件: {', '.join(pid_files)}")
+                        safe_print(f"💡 发现的PID文件: {', '.join(pid_files)}")
                     else:
-                        print("💡 当前目录没有发现任何 .pid 文件")
+                        safe_print("💡 当前目录没有发现任何 .pid 文件")
                 except Exception as e:
-                    print(f"💡 无法读取目录: {e}")
+                    safe_print(f"💡 无法读取目录: {e}")
                 
                 # 尝试查找并终止所有MediaTracker进程
                 if getattr(sys, 'frozen', False):
-                    print("💡 尝试查找MediaTracker进程...")
+                    safe_print("💡 尝试查找MediaTracker进程...")
                     try:
                         result = subprocess.run(
                             ['tasklist', '/FI', 'IMAGENAME eq MediaTracker.exe'],
@@ -59,19 +60,19 @@ class ProcessManager:
                             creationflags=subprocess.CREATE_NO_WINDOW
                         )
                         if 'MediaTracker.exe' in result.stdout:
-                            print("💡 发现MediaTracker进程，尝试强制终止...")
+                            safe_print("💡 发现MediaTracker进程，尝试强制终止...")
                             subprocess.run(
                                 ['taskkill', '/IM', 'MediaTracker.exe', '/F'],
                                 capture_output=True,
                                 text=True,
                                 creationflags=subprocess.CREATE_NO_WINDOW
                             )
-                            print("✅ 已强制终止所有MediaTracker进程")
+                            safe_print("✅ 已强制终止所有MediaTracker进程")
                             return True
                         else:
-                            print("💡 未发现MediaTracker进程")
+                            safe_print("💡 未发现MediaTracker进程")
                     except Exception as e:
-                        print(f"💡 查找进程时出错: {e}")
+                        safe_print(f"💡 查找进程时出错: {e}")
                 
                 return False
             
@@ -80,7 +81,7 @@ class ProcessManager:
             pid_file_path = get_pid_file_path(pid_file)
         
         if not os.path.exists(pid_file_path):
-            print(f"❌ PID文件不存在: {pid_file_path}")
+            safe_print(f"❌ PID文件不存在: {pid_file_path}")
             return False
         
         try:
@@ -88,20 +89,20 @@ class ProcessManager:
                 pid_str = f.read().strip()
                 
             if not pid_str:
-                print("❌ PID文件为空")
+                safe_print("❌ PID文件为空")
                 os.remove(pid_file_path)  # 清理空文件
                 return False
                 
             pid = int(pid_str)
-            print(f"🔍 找到进程 PID: {pid}")
+            safe_print(f"🔍 找到进程 PID: {pid}")
             
             # 检查进程是否存在
             if not is_process_running(pid):
-                print(f"❌ 进程 {pid} 已不存在，清理PID文件")
+                safe_print(f"❌ 进程 {pid} 已不存在，清理PID文件")
                 os.remove(pid_file_path)
                 return False
             
-            print(f"🎯 正在终止进程 {pid}...")
+            safe_print(f"🎯 正在终止进程 {pid}...")
             
             # 尝试终止进程
             success = terminate_process(pid)
@@ -112,7 +113,7 @@ class ProcessManager:
                 
                 # 再次检查进程是否已停止
                 if is_process_running(pid):
-                    print(f"⚠️ 进程 {pid} 仍在运行，尝试强制终止...")
+                    safe_print(f"⚠️ 进程 {pid} 仍在运行，尝试强制终止...")
                     if sys.platform == "win32":
                         subprocess.run(
                             ['taskkill', '/PID', str(pid), '/F', '/T'],
@@ -126,22 +127,22 @@ class ProcessManager:
                 if os.path.exists(pid_file_path):
                     os.remove(pid_file_path)
                 
-                print(f"✅ 后台程序已停止 (PID: {pid})")
+                safe_print(f"✅ 后台程序已停止 (PID: {pid})")
                 logger.info(f"后台程序已停止: PID {pid}")
                 return True
             else:
-                print(f"❌ 无法停止进程 {pid}")
+                safe_print(f"❌ 无法停止进程 {pid}")
                 return False
                 
         except ValueError:
-            print("❌ PID文件内容无效")
+            safe_print("❌ PID文件内容无效")
             return False
         except PermissionError:
-            print("❌ 权限不足，无法停止进程")
-            print("💡 请以管理员身份运行")
+            safe_print("❌ 权限不足，无法停止进程")
+            safe_print("💡 请以管理员身份运行")
             return False
         except Exception as e:
-            print(f"❌ 停止后台程序失败: {e}")
+            safe_print(f"❌ 停止后台程序失败: {e}")
             logger.error(f"停止后台程序失败: {e}")
             return False
 

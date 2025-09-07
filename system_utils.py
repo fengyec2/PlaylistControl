@@ -4,6 +4,7 @@ import signal
 import subprocess
 import time
 from logger import logger
+from safe_print import safe_print
 
 def get_executable_dir():
     """获取可执行文件所在目录"""
@@ -32,25 +33,25 @@ def check_and_install_dependencies() -> bool:
         import winsdk.windows.media.control as wmc
         return True
     except ImportError:
-        print("❌ 缺少必要的 winsdk 库")
-        print("🔧 正在尝试自动安装...")
+        safe_print("❌ 缺少必要的 winsdk 库")
+        safe_print("🔧 正在尝试自动安装...")
         
         try:
             import subprocess
             import sys
             subprocess.check_call([sys.executable, "-m", "pip", "install", "winsdk"])
-            print("✅ winsdk 安装成功!")
-            print("🔄 请重新运行程序")
+            safe_print("✅ winsdk 安装成功!")
+            safe_print("🔄 请重新运行程序")
             return False
         except Exception as e:
-            print(f"❌ 自动安装失败: {e}")
-            print("🛠️ 请手动执行: pip install winsdk")
+            safe_print(f"❌ 自动安装失败: {e}")
+            safe_print("🛠️ 请手动执行: pip install winsdk")
             return False
 
 def setup_signal_handlers(monitor):
     """设置信号处理器，用于优雅退出"""
     def signal_handler(signum, frame):
-        print(f"\n接收到退出信号 ({signum})，正在优雅退出...")
+        safe_print(f"\n接收到退出信号 ({signum})，正在优雅退出...")
         monitor.stop_monitoring()
         sys.exit(0)
     

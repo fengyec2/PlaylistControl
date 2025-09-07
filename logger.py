@@ -1,9 +1,8 @@
 # logger.py
 import logging
 import logging.handlers
-import os
-from typing import Optional
 from config_manager import config
+from safe_print import safe_print
 
 class Logger:
     def __init__(self, name: str = "MediaTracker"):
@@ -47,7 +46,7 @@ class Logger:
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
         except Exception as e:
-            print(f"⚠️ 无法设置日志文件: {e}")
+            safe_print(f"⚠️ 无法设置日志文件: {e}")
             
     def info(self, message: str) -> None:
         """记录信息日志"""

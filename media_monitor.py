@@ -5,12 +5,13 @@ from typing import Dict, Any, Optional
 from config_manager import config
 from database import db
 from logger import logger
+from safe_print import safe_print
 
 try:
     import winsdk.windows.media.control as wmc
     from winsdk.windows.storage.streams import RandomAccessStreamReference
 except ImportError:
-    print("需要安装 winsdk 库: pip install winsdk")
+    safe_print("需要安装 winsdk 库: pip install winsdk")
     exit(1)
 
 class MediaMonitor:
@@ -117,46 +118,46 @@ class MediaMonitor:
             
         use_emoji = config.should_use_emoji()
         
-        print(f"[{current_time.strftime('%H:%M:%S')}] 正在播放:")
+        safe_print(f"[{current_time.strftime('%H:%M:%S')}] 正在播放:")
         
         title_prefix = "🎵 " if use_emoji else ""
-        print(f"  {title_prefix}歌曲: {media_info.get('title', 'Unknown')}")
+        safe_print(f"  {title_prefix}歌曲: {media_info.get('title', 'Unknown')}")
         
         if media_info.get('artist'):
             artist_prefix = "🎤 " if use_emoji else ""
-            print(f"  {artist_prefix}艺术家: {media_info.get('artist')}")
+            safe_print(f"  {artist_prefix}艺术家: {media_info.get('artist')}")
             
         if media_info.get('album'):
             album_prefix = "💿 " if use_emoji else ""
-            print(f"  {album_prefix}专辑: {media_info.get('album')}")
+            safe_print(f"  {album_prefix}专辑: {media_info.get('album')}")
             
         if media_info.get('album_artist') and media_info.get('album_artist') != media_info.get('artist'):
             group_prefix = "👥 " if use_emoji else ""
-            print(f"  {group_prefix}专辑艺术家: {media_info.get('album_artist')}")
+            safe_print(f"  {group_prefix}专辑艺术家: {media_info.get('album_artist')}")
             
         if config.get("display.show_track_number", True) and media_info.get('track_number'):
             track_prefix = "🔢 " if use_emoji else ""
-            print(f"  {track_prefix}曲目号: {media_info.get('track_number')}")
+            safe_print(f"  {track_prefix}曲目号: {media_info.get('track_number')}")
             
         if config.get("display.show_genre", True) and media_info.get('genre'):
             genre_prefix = "🎭 " if use_emoji else ""
-            print(f"  {genre_prefix}流派: {media_info.get('genre')}")
+            safe_print(f"  {genre_prefix}流派: {media_info.get('genre')}")
             
         if config.get("display.show_year", True) and media_info.get('year'):
             year_prefix = "📅 " if use_emoji else ""
-            print(f"  {year_prefix}年份: {media_info.get('year')}")
+            safe_print(f"  {year_prefix}年份: {media_info.get('year')}")
             
         app_prefix = "📱 " if use_emoji else ""
-        print(f"  {app_prefix}应用: {media_info.get('app_name', 'Unknown')}")
+        safe_print(f"  {app_prefix}应用: {media_info.get('app_name', 'Unknown')}")
         
         status_prefix = "⚡ " if use_emoji else ""
-        print(f"  {status_prefix}状态: {media_info.get('status', 'Unknown')}")
+        safe_print(f"  {status_prefix}状态: {media_info.get('status', 'Unknown')}")
         
         if config.get("display.show_progress", True) and media_info.get('duration'):
             duration_str = f"{media_info['duration']//60}:{media_info['duration']%60:02d}"
             position_str = f"{media_info.get('position', 0)//60}:{media_info.get('position', 0)%60:02d}"
             progress_prefix = "⏱️ " if use_emoji else ""
-            print(f"  {progress_prefix}进度: {position_str}/{duration_str}")
+            safe_print(f"  {progress_prefix}进度: {position_str}/{duration_str}")
             
     async def monitor_media(self, interval: int = None, silent_mode: bool = False) -> None:
         """监控媒体播放并记录"""
@@ -164,9 +165,9 @@ class MediaMonitor:
             interval = config.get_monitoring_interval()
             
         if not silent_mode:
-            print("开始监控媒体播放...")
-            print("支持所有兼容 Windows Media Transport Controls 的应用")
-            print("按 Ctrl+C 停止监控\n")
+            safe_print("开始监控媒体播放...")
+            safe_print("支持所有兼容 Windows Media Transport Controls 的应用")
+            safe_print("按 Ctrl+C 停止监控\n")
         
         last_song_info = None
         session_start = datetime.now()
@@ -194,22 +195,22 @@ class MediaMonitor:
                         if db.save_media_info(media_info):
                             if not silent_mode:
                                 save_prefix = "✅ " if config.should_use_emoji() else ""
-                                print(f"  {save_prefix}已保存到数据库")
+                                safe_print(f"  {save_prefix}已保存到数据库")
                             tracks_in_session += 1
                         else:
                             if not silent_mode:
                                 skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
-                                print(f"  {skip_prefix}重复记录，跳过保存")
+                                safe_print(f"  {skip_prefix}重复记录，跳过保存")
                             
                         if not silent_mode:
-                            print("-" * 60)
+                            safe_print("-" * 60)
                         last_song_info = media_info.copy()
                         
                 await asyncio.sleep(interval)
                 
         except KeyboardInterrupt:
             if not silent_mode:
-                print(f"\n监控已停止")
+                safe_print(f"\n监控已停止")
             
             # 保存会话信息
             if tracks_in_session > 0:
@@ -217,7 +218,7 @@ class MediaMonitor:
                                    last_song_info.get('app_name', 'Unknown') if last_song_info else 'Unknown', 
                                    tracks_in_session)
                 if not silent_mode:
-                    print(f"本次会话播放了 {tracks_in_session} 首歌曲")
+                    safe_print(f"本次会话播放了 {tracks_in_session} 首歌曲")
             
         finally:
             self.running = False
