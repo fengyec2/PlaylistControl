@@ -4,8 +4,8 @@ import shutil
 import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
-from config_manager import config
-from logger import logger
+from config.config_manager import config
+from utils.logger import logger
 
 class DatabaseManager:
     def __init__(self):
@@ -13,7 +13,7 @@ class DatabaseManager:
         self.db_path = config.get_database_path()
         
         # 添加调试输出
-        from safe_print import safe_print
+        from utils.safe_print import safe_print
         safe_print(f"🔧 调试：数据库管理器使用路径: {self.db_path}")
         
         self.init_database()
@@ -89,7 +89,7 @@ class DatabaseManager:
         backup_interval = config.get("database.backup_interval_days", 7)
         
         # 使用可执行文件目录下的backups文件夹
-        from system_utils import get_executable_dir
+        from utils.system_utils import get_executable_dir
         backup_dir = os.path.join(get_executable_dir(), "backups")
         
         if not os.path.exists(backup_dir):
@@ -113,7 +113,7 @@ class DatabaseManager:
         """创建数据库备份"""
         try:
             # 使用可执行文件目录下的backups文件夹
-            from system_utils import get_executable_dir
+            from utils.system_utils import get_executable_dir
             backup_dir = os.path.join(get_executable_dir(), "backups")
             
             # 确保备份目录存在
@@ -126,14 +126,14 @@ class DatabaseManager:
             shutil.copy2(self.db_path, backup_file)
             
             # 使用safe_print而不是logger
-            from safe_print import safe_print
+            from utils.safe_print import safe_print
             safe_print(f"💾 数据库备份已创建: {backup_file}")
             
             # 清理旧备份文件（可选）
             self._cleanup_old_backups(backup_dir)
             
         except Exception as e:
-            from safe_print import safe_print
+            from utils.safe_print import safe_print
             safe_print(f"❌ 创建数据库备份失败: {e}")
 
     def _cleanup_old_backups(self, backup_dir: str, keep_count: int = 10) -> None:
@@ -157,11 +157,11 @@ class DatabaseManager:
             # 删除多余的备份文件
             for _, filename, file_path in backup_files_with_time[keep_count:]:
                 os.remove(file_path)
-                from safe_print import safe_print
+                from utils.safe_print import safe_print
                 safe_print(f"🗑️ 已删除旧备份: {filename}")
                 
         except Exception as e:
-            from safe_print import safe_print
+            from utils.safe_print import safe_print
             safe_print(f"⚠️ 清理旧备份文件失败: {e}")
 
             

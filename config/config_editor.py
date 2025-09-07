@@ -1,6 +1,6 @@
 import json
-from config_manager import config
-from safe_print import safe_print
+from config.config_manager import config
+from utils.safe_print import safe_print
 
 class ConfigEditor:
     @staticmethod

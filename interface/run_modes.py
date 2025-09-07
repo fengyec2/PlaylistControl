@@ -4,11 +4,11 @@ import sys
 import subprocess
 import time
 from pathlib import Path
-from system_utils import get_pid_file_path, is_process_running
-from process_manager import ProcessManager
-from config_manager import config
-from logger import logger
-from safe_print import safe_print
+from utils.system_utils import get_pid_file_path, is_process_running
+from core.process_manager import ProcessManager
+from config.config_manager import config
+from utils.logger import logger
+from utils.safe_print import safe_print
 
 class RunModes:
     def __init__(self, monitor):

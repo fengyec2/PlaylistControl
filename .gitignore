@@ -185,4 +185,4 @@ config.json
 media_history.db
 media_history.json
 media_tracker.pid
-/backups
+utils/backups/

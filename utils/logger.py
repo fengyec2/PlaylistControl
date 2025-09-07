@@ -2,8 +2,8 @@
 import logging
 import logging.handlers
 import os
-from config_manager import config
-from safe_print import safe_print
+from config.config_manager import config
+from utils.safe_print import safe_print
 
 class Logger:
     def __init__(self, name: str = "MediaTracker"):
@@ -72,7 +72,7 @@ class Logger:
             return log_file
         
         # 如果是相对路径，则相对于可执行文件目录
-        from system_utils import get_executable_dir
+        from utils.system_utils import get_executable_dir
         return os.path.join(get_executable_dir(), log_file)
         
     def info(self, message: str) -> None:

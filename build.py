@@ -2,8 +2,8 @@
 import PyInstaller.__main__
 import os
 import shutil
-from config_manager import version_info
-from safe_print import safe_print
+from config.config_manager import version_info
+from utils.safe_print import safe_print
 
 def create_version_file():
     """创建版本信息文件"""

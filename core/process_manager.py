@@ -2,9 +2,9 @@ import os
 import sys
 import time
 import subprocess
-from system_utils import get_executable_dir, get_pid_file_path, is_process_running, terminate_process
-from logger import logger
-from safe_print import safe_print
+from utils.system_utils import get_executable_dir, get_pid_file_path, is_process_running, terminate_process
+from utils.logger import logger
+from utils.safe_print import safe_print
 
 class ProcessManager:
     @staticmethod

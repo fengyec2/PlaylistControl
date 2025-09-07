@@ -4,7 +4,7 @@ import signal
 import subprocess
 import time
 # from logger import logger
-from safe_print import safe_print
+from utils.safe_print import safe_print
 
 def get_executable_dir():
     """获取可执行文件所在目录"""
@@ -27,7 +27,7 @@ def get_config_file_path():
 
 def get_database_path():
     """获取数据库文件路径"""
-    db_path = os.path.join(get_executable_dir(), 'media_tracking.db')
+    db_path = os.path.join(get_executable_dir(), 'media_history.db')
     safe_print(f"🔧 调试：数据库路径: {db_path}")
     return db_path
 

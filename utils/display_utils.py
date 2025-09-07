@@ -1,8 +1,8 @@
 # display_utils.py
 from datetime import datetime
-from config_manager import config
-from database import db
-from safe_print import safe_print
+from config.config_manager import config
+from core.database import db
+from utils.safe_print import safe_print
 
 class DisplayUtils:
     @staticmethod

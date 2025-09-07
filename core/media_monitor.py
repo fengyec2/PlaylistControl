@@ -2,10 +2,10 @@
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
-from config_manager import config
-from database import db
-from logger import logger
-from safe_print import safe_print
+from config.config_manager import config
+from core.database import db
+from utils.logger import logger
+from utils.safe_print import safe_print
 
 try:
     import winsdk.windows.media.control as wmc

@@ -1,5 +1,5 @@
 import argparse
-from config_manager import version_info
+from config.config_manager import version_info
 
 def parse_arguments():
     """解析命令行参数"""

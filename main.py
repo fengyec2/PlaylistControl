@@ -1,21 +1,21 @@
 import sys
 import os
-from safe_print import safe_print, init_console_encoding
+from utils.safe_print import safe_print, init_console_encoding
 from pathlib import Path
 
 # 在最开始初始化编码
 init_console_encoding()
 
-from cli_parser import parse_arguments
-from system_utils import check_and_install_dependencies, setup_signal_handlers
-from process_manager import ProcessManager
-from run_modes import RunModes
-from export_manager import ExportManager
-from interactive_mode import InteractiveMode
-from config_manager import config
-from media_monitor import monitor
-from display_utils import display
-from logger import logger
+from interface.cli_parser import parse_arguments
+from utils.system_utils import check_and_install_dependencies, setup_signal_handlers
+from core.process_manager import ProcessManager
+from interface.run_modes import RunModes
+from utils.export_manager import ExportManager
+from interface.interactive_mode import InteractiveMode
+from config.config_manager import config
+from core.media_monitor import monitor
+from utils.display_utils import display
+from utils.logger import logger
 
 # 确保工作目录正确
 if getattr(sys, 'frozen', False):

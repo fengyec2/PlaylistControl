@@ -2,7 +2,7 @@
 import json
 import os
 from typing import Dict, Any, Optional
-from safe_print import safe_print
+from utils.safe_print import safe_print
 
 class VersionInfo:
     """版本信息类 - 不会被保存到配置文件"""
@@ -41,7 +41,7 @@ class VersionInfo:
 class ConfigManager:
     def __init__(self, config_file: str = None):
         # 导入放在这里避免循环导入
-        from system_utils import get_config_file_path, get_database_path, get_log_file_path
+        from utils.system_utils import get_config_file_path, get_database_path, get_log_file_path
         
         # 如果没有指定配置文件路径，使用默认路径
         if config_file is None:
@@ -49,7 +49,7 @@ class ConfigManager:
         else:
             # 如果指定了配置文件，但不是绝对路径，则相对于可执行文件目录
             if not os.path.isabs(config_file):
-                from system_utils import get_executable_dir
+                from utils.system_utils import get_executable_dir
                 self.config_file = os.path.join(get_executable_dir(), config_file)
             else:
                 self.config_file = config_file
@@ -222,7 +222,7 @@ class ConfigManager:
         # 优先使用配置中的路径，如果是相对路径则相对于可执行文件目录
         db_path = self.get("database.path", self.database_path)
         if not os.path.isabs(db_path):
-            from system_utils import get_executable_dir
+            from utils.system_utils import get_executable_dir
             db_path = os.path.join(get_executable_dir(), db_path)
         return db_path
     
@@ -231,7 +231,7 @@ class ConfigManager:
         # 优先使用配置中的路径，如果是相对路径则相对于可执行文件目录
         log_path = self.get("logging.file", self.log_file_path)
         if not os.path.isabs(log_path):
-            from system_utils import get_executable_dir
+            from utils.system_utils import get_executable_dir
             log_path = os.path.join(get_executable_dir(), log_path)
         return log_path
     
@@ -241,7 +241,7 @@ class ConfigManager:
             filename = self.get("export.default_filename", "media_history.json")
         
         if not os.path.isabs(filename):
-            from system_utils import get_executable_dir
+            from utils.system_utils import get_executable_dir
             filename = os.path.join(get_executable_dir(), filename)
         return filename
 
