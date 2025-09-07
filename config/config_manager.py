@@ -6,8 +6,8 @@ from utils.safe_print import safe_print
 
 class VersionInfo:
     """版本信息类 - 不会被保存到配置文件"""
-    VERSION = "2.2.1"
-    VERSION_TUPLE = (2, 2, 1, 0)
+    VERSION = "2.3.0"
+    VERSION_TUPLE = (2, 3, 0, 0)
     APP_NAME = "PlaylistControl"
     AUTHOR = "fengyec2"
     COMPANY = "https://github.com/fengyec2/PlaylistControl"

@@ -221,22 +221,26 @@ PlaylistControl.exe -b -q --no-emoji -i 10
 
 ```
 PlaylistControl/
-├── main.py                # 主程序入口
-├── config_manager.py      # 配置管理
-├── config_editor.py       # 配置编辑模块
-├── database.py            # 数据库操作
-├── media_monitor.py       # 媒体监控核心
-├── display_utils.py       # 显示工具
-├── cli_parser.py          # 命令行参数解析模块
-├── system_utils.py        # 系统工具模块
-├── process_manager.py     # 进程管理模块
-├── run_modes.py           # 导出功能模块
-├── interactive_mode.py    # 命令行交互模式模块
-├── logger.py              # 日志系统
-├── safe_print.py          # 去除 Emoji 打印
-├── build.py               # 打包脚本
-├── config.json            # 配置文件（自动生成）
-```
+├── main.py                    # 主程序入口
+├── build.py                   # 打包脚本
+├── core/                      # 核心功能模块
+│   ├── media_monitor.py       # 媒体监控核心
+│   ├── database.py            # 数据库操作
+│   └── process_manager.py     # 进程管理
+├── config/                    # 配置相关
+│   ├── config_manager.py      # 配置管理
+│   └── config_editor.py       # 配置编辑
+├── interface/                 # 用户界面相关
+│   ├── cli_parser.py          # 命令行解析
+│   ├── interactive_mode.py    # 交互模式
+│   └── run_modes.py           # 运行模式
+├── utils/                     # 工具模块
+│   ├── display_utils.py       # 显示工具
+│   ├── system_utils.py        # 系统工具
+│   ├── safe_print.py          # 安全打印
+│   ├── export_manager.py      # 导出工具
+│   └── logger.py              # 日志系统
+└── resources/
 
 ## 🔧 开发与构建
 
@@ -266,7 +270,7 @@ python build.py
 
 ## 📋 版本历史
 
-查看完整的变更日志：[CHANGELOG.md](CHANGELOG.md)
+查看完整的变更日志：[CHANGELOG.md](resources\docs\CHANGELOG.md)
 
 
 ## 📄 许可证

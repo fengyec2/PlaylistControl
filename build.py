@@ -62,9 +62,9 @@ def build_executable():
         'main.py',
         '--onefile',
         f'--name={version_info.APP_NAME}',
-        '--icon=icon.ico',  # 如果有图标文件
+        '--icon=resources\icon\icon.ico',  # 如果有图标文件
         '--version-file=version_info.txt',  # 添加版本信息文件
-        '--add-data=config.json;.',
+        #'--add-data=config.json;.',
         '--hidden-import=winsdk',
         '--hidden-import=sqlite3',
         '--hidden-import=psutil',
