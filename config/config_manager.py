@@ -4,6 +4,19 @@ import os
 from typing import Dict, Any, Optional
 from utils.safe_print import safe_print
 
+# 全局变量控制调试输出
+_verbose_mode = False
+
+def set_verbose_mode(verbose: bool):
+    """设置详细输出模式"""
+    global _verbose_mode
+    _verbose_mode = verbose
+
+def debug_print(message):
+    """只在 verbose 模式下打印调试信息"""
+    if _verbose_mode:
+        safe_print(message)
+
 class VersionInfo:
     """版本信息类 - 不会被保存到配置文件"""
     VERSION = "2.3.0"
@@ -58,9 +71,9 @@ class ConfigManager:
         self.database_path = get_database_path()
         self.log_file_path = get_log_file_path()
         
-        safe_print(f"🔧 调试：配置文件路径: {self.config_file}")
-        safe_print(f"🔧 调试：数据库路径: {self.database_path}")
-        safe_print(f"🔧 调试：日志文件路径: {self.log_file_path}")
+        debug_print(f"🔧 调试：配置文件路径: {self.config_file}")
+        debug_print(f"🔧 调试：数据库路径: {self.database_path}")
+        debug_print(f"🔧 调试：日志文件路径: {self.log_file_path}")
         
         self.config = self._load_default_config()
         self.load_config()
