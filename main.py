@@ -17,63 +17,99 @@ from core.media_monitor import monitor
 from utils.display_utils import display
 from utils.logger import logger
 
-# 确保工作目录正确
-if getattr(sys, 'frozen', False):
-    # 打包后的exe，切换到exe所在目录
-    exe_dir = Path(sys.executable).parent
-    os.chdir(exe_dir)
-    safe_print(f"🔧 调试：已切换工作目录到: {exe_dir}")
-else:
-    # 开发模式，切换到脚本所在目录
-    script_dir = Path(__file__).parent
-    os.chdir(script_dir)
-    safe_print(f"🔧 调试：已切换工作目录到: {script_dir}")
-
-safe_print(f"🔧 调试：当前工作目录: {os.getcwd()}")
+def debug_print(message, verbose=False):
+    """只在 verbose 模式下打印调试信息"""
+    if verbose:
+        safe_print(message)
 
 def main():
     try:
         # 检查是否是守护进程工作模式（通过环境变量判断）
         if os.environ.get('MEDIA_TRACKER_DAEMON_WORKER') == '1':
-            safe_print(f"🔧 检测到守护进程工作模式，PID: {os.getpid()}")
+            # 先解析参数以获取 verbose 设置
+            args = parse_arguments()
+            verbose = getattr(args, 'verbose', False)
+
+            # 设置所有模块的 verbose 模式
+            from utils.system_utils import set_verbose_mode as set_system_verbose
+            from config.config_manager import set_verbose_mode as set_config_verbose
+            set_system_verbose(verbose)
+            set_config_verbose(verbose)
+            
+            debug_print(f"🔧 检测到守护进程工作模式，PID: {os.getpid()}", verbose)
+            
+            # 确保工作目录正确
+            if getattr(sys, 'frozen', False):
+                # 打包后的exe，切换到exe所在目录
+                exe_dir = Path(sys.executable).parent
+                os.chdir(exe_dir)
+                debug_print(f"🔧 调试：已切换工作目录到: {exe_dir}", verbose)
+            else:
+                # 开发模式，切换到脚本所在目录
+                script_dir = Path(__file__).parent
+                os.chdir(script_dir)
+                debug_print(f"🔧 调试：已切换工作目录到: {script_dir}", verbose)
+
+            debug_print(f"🔧 调试：当前工作目录: {os.getcwd()}", verbose)
             
             # 这是子进程，运行守护进程工作模式
             if not check_and_install_dependencies():
                 safe_print("❌ 依赖检查失败")
                 sys.exit(1)
             
-            safe_print(f"🔧 依赖检查通过")
-            
-            # 解析参数（可能没有 -d 参数）
-            args = parse_arguments()
+            debug_print(f"🔧 依赖检查通过", verbose)
             
             # 设置显示选项
             if hasattr(args, 'no_emoji') and args.no_emoji:
                 config.set("display.use_emoji", False)
             
-            # 守护进程默认使用静默模式
-            config.set("logging.level", "INFO")  # 暂时改为INFO以便调试
+            # 设置日志级别
+            if verbose:
+                config.set("logging.level", "DEBUG")
+            else:
+                config.set("logging.level", "INFO")
             
             interval = getattr(args, 'interval', None) or config.get_monitoring_interval()
             pid_file_path = os.environ.get('MEDIA_TRACKER_PID_FILE')
             
-            safe_print(f"🔧 间隔={interval}, PID文件={pid_file_path}")
+            debug_print(f"🔧 间隔={interval}, PID文件={pid_file_path}", verbose)
             
             if not pid_file_path:
                 safe_print("❌ 守护进程工作模式：缺少PID文件路径")
                 logger.error("守护进程工作模式：缺少PID文件路径")
                 sys.exit(1)
             
-            safe_print(f"🔧 创建RunModes实例")
+            debug_print(f"🔧 创建RunModes实例", verbose)
             # 创建运行模式管理器并启动守护进程工作
-            run_modes = RunModes(monitor)
+            run_modes = RunModes(monitor, verbose=verbose)
             
-            safe_print(f"🔧 调用daemon_worker")
+            debug_print(f"🔧 调用daemon_worker", verbose)
             run_modes.daemon_worker(interval, pid_file_path)
             return
         
         # 正常的主进程流程
         args = parse_arguments()
+        verbose = getattr(args, 'verbose', False)
+
+        # 设置所有模块的 verbose 模式
+        from utils.system_utils import set_verbose_mode as set_system_verbose
+        from config.config_manager import set_verbose_mode as set_config_verbose
+        set_system_verbose(verbose)
+        set_config_verbose(verbose)
+        
+        # 确保工作目录正确
+        if getattr(sys, 'frozen', False):
+            # 打包后的exe，切换到exe所在目录
+            exe_dir = Path(sys.executable).parent
+            os.chdir(exe_dir)
+            debug_print(f"🔧 调试：已切换工作目录到: {exe_dir}", verbose)
+        else:
+            # 开发模式，切换到脚本所在目录
+            script_dir = Path(__file__).parent
+            os.chdir(script_dir)
+            debug_print(f"🔧 调试：已切换工作目录到: {script_dir}", verbose)
+
+        debug_print(f"🔧 调试：当前工作目录: {os.getcwd()}", verbose)
         
         # 处理停止命令
         if args.stop:
@@ -93,8 +129,8 @@ def main():
         elif args.quiet:
             config.set("logging.level", "WARNING")
         
-        # 创建运行模式管理器
-        run_modes = RunModes(monitor)
+        # 创建运行模式管理器（传递 verbose 参数）
+        run_modes = RunModes(monitor, verbose=verbose)
         
         # 处理不同的运行模式
         if args.recent is not None:
@@ -114,7 +150,7 @@ def main():
         
         if args.daemon:
             # 守护进程模式 - 这是主进程，启动守护进程
-            safe_print(f"🔧 主进程准备启动守护进程")
+            debug_print(f"🔧 主进程准备启动守护进程", verbose)
             setup_signal_handlers(monitor)
             run_modes.run_daemon_mode(args.interval, args.pid_file)
             return

@@ -11,8 +11,14 @@ from utils.logger import logger
 from utils.safe_print import safe_print
 
 class RunModes:
-    def __init__(self, monitor):
+    def __init__(self, monitor, verbose=False):
         self.monitor = monitor
+        self.verbose = verbose
+
+    def debug_print(self, message):
+        """只在 verbose 模式下打印调试信息"""
+        if self.verbose:
+            safe_print(message)
 
     async def background_monitor(self, interval: int = None, silent: bool = False):
         """后台监控模式"""
@@ -42,8 +48,8 @@ class RunModes:
 
         pid_file_path = get_pid_file_path(pid_file)
         
-        safe_print(f"🔧 调试：当前工作目录: {os.getcwd()}")
-        safe_print(f"🔧 调试：PID文件路径: {pid_file_path}")
+        self.debug_print(f"🔧 调试：当前工作目录: {os.getcwd()}")
+        self.debug_print(f"🔧 调试：PID文件路径: {pid_file_path}")
 
         # 检查是否已有实例在运行
         if os.path.exists(pid_file_path):
@@ -55,9 +61,9 @@ class RunModes:
                     sys.exit(1)
                 else:
                     os.remove(pid_file_path)
-                    safe_print(f"🔧 调试：删除了旧的PID文件")
+                    self.debug_print(f"🔧 调试：删除了旧的PID文件")
             except Exception as e:
-                safe_print(f"🔧 调试：处理旧PID文件时出错: {e}")
+                self.debug_print(f"🔧 调试：处理旧PID文件时出错: {e}")
                 try:
                     os.remove(pid_file_path)
                 except:
@@ -68,8 +74,8 @@ class RunModes:
             cmd = [sys.executable]
             # 确保工作目录
             work_dir = Path(sys.executable).parent
-            safe_print(f"🔧 调试：打包模式，exe: {sys.executable}")
-            safe_print(f"🔧 调试：工作目录将设为: {work_dir}")
+            self.debug_print(f"🔧 调试：打包模式，exe: {sys.executable}")
+            self.debug_print(f"🔧 调试：工作目录将设为: {work_dir}")
         else:
             main_script = Path(__file__).parent / 'main.py'
             python_exe = sys.executable
@@ -77,27 +83,31 @@ class RunModes:
                 pythonw_exe = python_exe.replace('python.exe', 'pythonw.exe')
                 if os.path.exists(pythonw_exe):
                     python_exe = pythonw_exe
-                    safe_print(f"🔧 调试：使用pythonw.exe避免显示终端")
+                    self.debug_print(f"🔧 调试：使用pythonw.exe避免显示终端")
             
             cmd = [python_exe, str(main_script)]
             work_dir = Path(__file__).parent
-            safe_print(f"🔧 调试：脚本模式，Python: {python_exe}")
-            safe_print(f"🔧 调试：工作目录将设为: {work_dir}")
+            self.debug_print(f"🔧 调试：脚本模式，Python: {python_exe}")
+            self.debug_print(f"🔧 调试：工作目录将设为: {work_dir}")
         
         cmd.extend(['-i', str(interval)])
+        
+        # 如果当前是verbose模式，传递给子进程
+        if self.verbose:
+            cmd.append('-v')
         
         if pid_file:
             cmd.extend(['--pid-file', pid_file])
         
-        safe_print(f"🔧 启动命令: {' '.join(cmd)}")
+        self.debug_print(f"🔧 启动命令: {' '.join(cmd)}")
 
         # 设置环境变量
         env = os.environ.copy()
         env['MEDIA_TRACKER_DAEMON_WORKER'] = '1'
         env['MEDIA_TRACKER_PID_FILE'] = pid_file_path
         
-        safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_DAEMON_WORKER=1")
-        safe_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_PID_FILE={pid_file_path}")
+        self.debug_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_DAEMON_WORKER=1")
+        self.debug_print(f"🔧 调试：设置环境变量 MEDIA_TRACKER_PID_FILE={pid_file_path}")
 
         # 创建调试日志文件
         debug_log = work_dir / 'daemon_debug.log'
@@ -131,9 +141,9 @@ class RunModes:
                         cwd=str(work_dir)  # 重要：设置工作目录
                     )
             
-            safe_print(f"🔧 调试：进程已启动，PID: {process.pid}")
-            safe_print(f"🔧 调试：工作目录: {work_dir}")
-            safe_print(f"🔧 调试：调试日志文件: {debug_log}")
+            self.debug_print(f"🔧 调试：进程已启动，PID: {process.pid}")
+            self.debug_print(f"🔧 调试：工作目录: {work_dir}")
+            self.debug_print(f"🔧 调试：调试日志文件: {debug_log}")
             
             # 等待检查进程状态
             time.sleep(3)
@@ -190,22 +200,20 @@ class RunModes:
             traceback.print_exc()
             sys.exit(1)
 
-
-
     def daemon_worker(self, interval: int, pid_file_path: str):
         """守护进程工作函数"""
         try:
-            safe_print(f"🔧 守护进程工作开始，PID: {os.getpid()}")
+            self.debug_print(f"🔧 守护进程工作开始，PID: {os.getpid()}")
             
             # 确保PID文件存在且正确
             with open(pid_file_path, 'w') as f:
                 f.write(str(os.getpid()))
             
-            safe_print(f"🔧 PID文件已写入: {pid_file_path}")
+            self.debug_print(f"🔧 PID文件已写入: {pid_file_path}")
             
             logger.info(f"守护进程工作模式启动，PID: {os.getpid()}")
             
-            safe_print(f"🔧 准备启动后台监控，间隔: {interval}秒")
+            self.debug_print(f"🔧 准备启动后台监控，间隔: {interval}秒")
             asyncio.run(self.background_monitor(interval, silent=True))
             
         except Exception as e:
@@ -215,10 +223,10 @@ class RunModes:
             logger.error(f"守护进程工作异常: {e}")
             sys.exit(1)
         finally:
-            safe_print(f"🔧 守护进程工作结束，清理PID文件")
+            self.debug_print(f"🔧 守护进程工作结束，清理PID文件")
             # 清理PID文件
             try:
                 if os.path.exists(pid_file_path):
                     os.remove(pid_file_path)
             except Exception as e:
-                safe_print(f"🔧 清理PID文件失败: {e}")
+                self.debug_print(f"🔧 清理PID文件失败: {e}")
