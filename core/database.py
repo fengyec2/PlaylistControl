@@ -7,6 +7,19 @@ from typing import Dict, Any, List, Optional, Tuple
 from config.config_manager import config
 from utils.logger import logger
 
+# 全局变量控制调试输出
+_verbose_mode = False
+
+def set_verbose_mode(verbose: bool):
+    """设置详细输出模式"""
+    global _verbose_mode
+    _verbose_mode = verbose
+
+def debug_print(message):
+    """只在 verbose 模式下打印调试信息"""
+    if _verbose_mode:
+        from utils.safe_print import safe_print
+        safe_print(message)
 class DatabaseManager:
     def __init__(self):
         # 使用config的get_database_path()方法获取正确的数据库路径
@@ -14,7 +27,7 @@ class DatabaseManager:
         
         # 添加调试输出
         from utils.safe_print import safe_print
-        safe_print(f"🔧 调试：数据库管理器使用路径: {self.db_path}")
+        debug_print(f"🔧 调试：数据库管理器使用路径: {self.db_path}")
         
         self.init_database()
         self._check_backup()
