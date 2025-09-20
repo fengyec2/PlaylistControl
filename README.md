@@ -10,7 +10,7 @@
 
 - 🎵 **自动追踪**: 实时监控并记录正在播放的音乐
 - 📊 **详细统计**: 提供播放次数、时长等统计信息
-- 🔄 **多应用支持**: 兼容 Spotify、Apple Music、网易云音乐等主流音乐应用
+- 🔄 **多应用支持**: 兼容 Spotify、Apple Music、网易云音乐等支持 SMTC 的应用
 - 💾 **数据导出**: 支持将播放历史导出为 JSON 格式
 - 🔧 **多运行模式**: 交互模式、后台监控、守护进程
 - ⚙️ **灵活配置**: 可自定义监控间隔、显示选项等
@@ -232,15 +232,17 @@ PlaylistControl/
 │   └── config_editor.py       # 配置编辑
 ├── interface/                 # 用户界面相关
 │   ├── cli_parser.py          # 命令行解析
+│   ├── app_launcher.py        # 应用启动器
 │   ├── interactive_mode.py    # 交互模式
-│   └── run_modes.py           # 运行模式
+│   ├── background_mode.py     # 后台模式
+│   └── daemon_mode.py         # 守护进程模式
 ├── utils/                     # 工具模块
 │   ├── display_utils.py       # 显示工具
 │   ├── system_utils.py        # 系统工具
 │   ├── safe_print.py          # 安全打印
 │   ├── export_manager.py      # 导出工具
 │   └── logger.py              # 日志系统
-└── resources/
+└── resources/                 # 资源文件
 
 ## 🔧 开发与构建
 
