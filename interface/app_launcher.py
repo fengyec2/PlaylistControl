@@ -6,7 +6,6 @@ from utils.safe_print import safe_print
 from interface.cli_parser import parse_arguments
 from utils.system_utils import check_and_install_dependencies, setup_signal_handlers
 from core.process_manager import ProcessManager
-from interface.run_modes import RunModes
 from utils.export_manager import ExportManager
 from interface.interactive_mode import InteractiveMode
 from interface.background_mode import BackgroundMode
@@ -21,7 +20,6 @@ class AppLauncher:
     def __init__(self):
         self.args = None
         self.verbose = False
-        self.run_modes = None
     
     def debug_print(self, message):
         """只在 verbose 模式下打印调试信息"""
@@ -45,9 +43,6 @@ class AppLauncher:
         
         # 设置显示和日志选项
         self._setup_display_and_logging()
-        
-        # 创建运行模式管理器
-        self.run_modes = RunModes(monitor, verbose=self.verbose)
     
     def _setup_working_directory(self):
         """设置正确的工作目录"""
@@ -75,6 +70,21 @@ class AppLauncher:
             config.set("logging.level", "DEBUG")
         elif hasattr(self.args, 'quiet') and self.args.quiet:
             config.set("logging.level", "WARNING")
+    
+    def _setup_environment_for_daemon(self):
+        """为守护进程工作模式设置简化的环境"""
+        # 设置工作目录
+        self._setup_working_directory()
+        
+        # 设置verbose模式到各个模块
+        from utils.system_utils import set_verbose_mode as set_system_verbose
+        from config.config_manager import set_verbose_mode as set_config_verbose
+        set_system_verbose(self.verbose)
+        set_config_verbose(self.verbose)
+        
+        # 设置日志级别
+        if self.verbose:
+            config.set("logging.level", "DEBUG")
     
     def is_daemon_worker_mode(self):
         """检查是否是守护进程工作模式"""
