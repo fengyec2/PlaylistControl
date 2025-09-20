@@ -1,8 +1,6 @@
 # media_monitor.py - 添加静默模式和停止功能
 import asyncio
 import time
-import signal
-import sys
 from datetime import datetime
 from typing import Dict, Any, Optional
 from config.config_manager import config
@@ -21,22 +19,11 @@ class MediaMonitor:
     def __init__(self):
         self.current_session = None
         self.running = False
-        self._stop_flag = False
-        self._monitoring_task = None
         self.last_complete_info = {}  # 缓存上一次完整的信息
         self.pending_info_cache = {}  # 缓存待验证的信息
         
     def stop_monitoring(self):
         """停止监控"""
-        self.running = False
-        self._stop_flag = True
-        # 如果有正在运行的监控任务，取消它
-        if self._monitoring_task and not self._monitoring_task.done():
-            self._monitoring_task.cancel()
-    
-    def set_stop_flag(self):
-        """设置停止标志"""
-        self._stop_flag = True
         self.running = False
     
     def _is_duration_valid(self, duration: int) -> bool:
@@ -101,10 +88,6 @@ class MediaMonitor:
     async def get_media_info(self) -> Dict[str, Any]:
         """获取当前播放的媒体信息，带重试和验证机制"""
         try:
-            # 检查停止标志
-            if self._stop_flag:
-                return {}
-                
             # 获取基础信息
             raw_info = await self._get_raw_media_info()
             
@@ -150,18 +133,10 @@ class MediaMonitor:
         retry_intervals = [0.5, 1.0, 1.5, 2.0]  # 渐进式重试间隔
         
         for retry_interval in retry_intervals:
-            if time.time() - start_time >= max_wait or self._stop_flag:
+            if time.time() - start_time >= max_wait:
                 break
                 
-            try:
-                await asyncio.sleep(retry_interval)
-            except asyncio.CancelledError:
-                logger.debug("等待媒体信息时被取消")
-                break
-            
-            # 再次检查停止标志
-            if self._stop_flag:
-                break
+            await asyncio.sleep(retry_interval)
             
             try:
                 current_info = await self._get_raw_media_info()
@@ -200,10 +175,6 @@ class MediaMonitor:
     async def _get_raw_media_info(self) -> Dict[str, Any]:
         """获取原始媒体信息（单次调用）"""
         try:
-            # 检查停止标志
-            if self._stop_flag:
-                return {}
-                
             sessions_manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
             current_session = sessions_manager.get_current_session()
             
@@ -336,86 +307,7 @@ class MediaMonitor:
             position_str = f"{media_info.get('position', 0)//60}:{media_info.get('position', 0)%60:02d}"
             progress_prefix = "⏱️ " if use_emoji else ""
             safe_print(f"  {progress_prefix}进度: {position_str}/{duration_str}")
-
-    async def _monitoring_loop(self, interval: int, silent_mode: bool = False):
-        """监控循环的核心实现"""
-        last_song_info = None
-        session_start = datetime.now()
-        tracks_in_session = 0
-        
-        try:
-            while self.running and not self._stop_flag:
-                try:
-                    media_info = await self.get_media_info()
-                    
-                    # 检查停止标志
-                    if self._stop_flag:
-                        break
-                    
-                    if media_info and media_info.get('title'):
-                        current_song_id = f"{media_info.get('title')}_{media_info.get('artist')}_{media_info.get('app_name')}"
-                        last_song_id = f"{last_song_info.get('title', '')}_{last_song_info.get('artist', '')}_{last_song_info.get('app_name', '')}" if last_song_info else ""
-                        
-                        # 检查是否是新歌曲或状态变为播放
-                        if (current_song_id != last_song_id and media_info.get('status') == 'Playing') or \
-                           (last_song_info and last_song_info.get('status') != 'Playing' and media_info.get('status') == 'Playing'):
-                            
-                            current_time = datetime.now()
-                            self._format_media_output(media_info, current_time, silent_mode)
-                            
-                            # 保存到数据库
-                            if db.save_media_info(media_info):
-                                if not silent_mode:
-                                    save_prefix = "✅ " if config.should_use_emoji() else ""
-                                    safe_print(f"  {save_prefix}已保存到数据库")
-                                tracks_in_session += 1
-                            else:
-                                if not silent_mode:
-                                    skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
-                                    safe_print(f"  {skip_prefix}重复记录，跳过保存")
-                                
-                            if not silent_mode:
-                                safe_print("-" * 60)
-                            last_song_info = media_info.copy()
-                    
-                    # 检查停止标志再次，避免不必要的等待
-                    if self._stop_flag:
-                        break
-                        
-                    # 使用可中断的sleep
-                    try:
-                        await asyncio.sleep(interval)
-                    except asyncio.CancelledError:
-                        logger.debug("监控循环中的sleep被取消")
-                        break
-                        
-                except asyncio.CancelledError:
-                    logger.debug("监控循环被取消")
-                    break
-                except Exception as e:
-                    logger.error(f"监控循环中发生错误: {e}")
-                    if not silent_mode:
-                        safe_print(f"监控过程中发生错误: {e}")
-                    
-                    # 如果发生错误，短暂等待后继续
-                    if not self._stop_flag:
-                        try:
-                            await asyncio.sleep(1)
-                        except asyncio.CancelledError:
-                            break
-                
-        finally:
-            # 保存会话信息
-            if tracks_in_session > 0:
-                try:
-                    db.save_session_info(session_start, datetime.now(), 
-                                       last_song_info.get('app_name', 'Unknown') if last_song_info else 'Unknown', 
-                                       tracks_in_session)
-                    if not silent_mode:
-                        safe_print(f"本次会话播放了 {tracks_in_session} 首歌曲")
-                except Exception as e:
-                    logger.error(f"保存会话信息时出错: {e}")
-
+            
     async def monitor_media(self, interval: int = None, silent_mode: bool = False) -> None:
         """监控媒体播放并记录"""
         if interval is None:
@@ -426,33 +318,59 @@ class MediaMonitor:
             safe_print("支持所有兼容 Windows Media Transport Controls 的应用")
             safe_print("按 Ctrl+C 停止监控\n")
         
+        last_song_info = None
+        session_start = datetime.now()
+        tracks_in_session = 0
+        
         self.running = True
-        self._stop_flag = False
         logger.info(f"开始媒体监控，间隔: {interval}秒，静默模式: {silent_mode}")
         
         try:
-            # 创建监控任务
-            self._monitoring_task = asyncio.create_task(self._monitoring_loop(interval, silent_mode))
-            await self._monitoring_task
-            
+            while self.running:
+                media_info = await self.get_media_info()
+                
+                if media_info and media_info.get('title'):
+                    current_song_id = f"{media_info.get('title')}_{media_info.get('artist')}_{media_info.get('app_name')}"
+                    last_song_id = f"{last_song_info.get('title', '')}_{last_song_info.get('artist', '')}_{last_song_info.get('app_name', '')}" if last_song_info else ""
+                    
+                    # 检查是否是新歌曲或状态变为播放
+                    if (current_song_id != last_song_id and media_info.get('status') == 'Playing') or \
+                       (last_song_info and last_song_info.get('status') != 'Playing' and media_info.get('status') == 'Playing'):
+                        
+                        current_time = datetime.now()
+                        self._format_media_output(media_info, current_time, silent_mode)
+                        
+                        # 保存到数据库
+                        if db.save_media_info(media_info):
+                            if not silent_mode:
+                                save_prefix = "✅ " if config.should_use_emoji() else ""
+                                safe_print(f"  {save_prefix}已保存到数据库")
+                            tracks_in_session += 1
+                        else:
+                            if not silent_mode:
+                                skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
+                                safe_print(f"  {skip_prefix}重复记录，跳过保存")
+                            
+                        if not silent_mode:
+                            safe_print("-" * 60)
+                        last_song_info = media_info.copy()
+                        
+                await asyncio.sleep(interval)
+                
         except KeyboardInterrupt:
-            if not silent_mode:
-                safe_print(f"\n接收到键盘中断信号")
-        except asyncio.CancelledError:
-            if not silent_mode:
-                safe_print(f"\n监控任务被取消")
-        except Exception as e:
-            logger.error(f"监控过程中发生未预期的错误: {e}")
-            if not silent_mode:
-                safe_print(f"\n监控过程中发生错误: {e}")
-        finally:
-            # 清理工作
-            self.running = False
-            self._stop_flag = True
-            
             if not silent_mode:
                 safe_print(f"\n监控已停止")
             
+            # 保存会话信息
+            if tracks_in_session > 0:
+                db.save_session_info(session_start, datetime.now(), 
+                                   last_song_info.get('app_name', 'Unknown') if last_song_info else 'Unknown', 
+                                   tracks_in_session)
+                if not silent_mode:
+                    safe_print(f"本次会话播放了 {tracks_in_session} 首歌曲")
+            
+        finally:
+            self.running = False
             logger.info("媒体监控已停止")
 
 # 全局监控器实例
