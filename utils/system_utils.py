@@ -90,8 +90,9 @@ def setup_signal_handlers(monitor):
     """设置信号处理器，用于优雅退出"""
     def signal_handler(signum, frame):
         safe_print(f"\n接收到退出信号 ({signum})，正在优雅退出...")
-        monitor.stop_monitoring()
-        sys.exit(0)
+        # 设置停止标志，而不是直接退出
+        monitor.set_stop_flag()
+        # 不要在这里调用 sys.exit(0)
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
