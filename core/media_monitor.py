@@ -1,5 +1,6 @@
 # media_monitor.py - 添加静默模式和停止功能
 import asyncio
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 from config.config_manager import config
@@ -18,13 +19,161 @@ class MediaMonitor:
     def __init__(self):
         self.current_session = None
         self.running = False
+        self.last_complete_info = {}  # 缓存上一次完整的信息
+        self.pending_info_cache = {}  # 缓存待验证的信息
         
     def stop_monitoring(self):
         """停止监控"""
         self.running = False
+    
+    def _is_duration_valid(self, duration: int) -> bool:
+        """检查时长是否有效"""
+        return duration is not None and duration > 0
+    
+    def _is_info_complete(self, media_info: Dict[str, Any]) -> bool:
+        """检查媒体信息是否完整"""
+        if not media_info.get('title'):
+            return False
         
+        # 对于正在播放的歌曲，时长应该是有效的
+        if media_info.get('status') == 'Playing':
+            return self._is_duration_valid(media_info.get('duration', 0))
+        
+        return True
+    
+    def _calculate_info_completeness_score(self, media_info: Dict[str, Any]) -> int:
+        """计算信息完整度分数"""
+        score = 0
+        important_fields = {
+            'title': 3,      # 歌名最重要
+            'artist': 2,     # 艺术家重要
+            'duration': 2,   # 时长重要
+            'album': 1,      # 专辑一般重要
+            'status': 1      # 状态一般重要
+        }
+        
+        for field, weight in important_fields.items():
+            value = media_info.get(field)
+            if value and str(value) not in ['', 'Unknown', '0']:
+                if field == 'duration' and self._is_duration_valid(value):
+                    score += weight
+                elif field != 'duration':
+                    score += weight
+        
+        return score
+    
+    def _merge_media_info(self, cached_info: Dict[str, Any], new_info: Dict[str, Any]) -> Dict[str, Any]:
+        """智能合并媒体信息，优先使用更完整的数据"""
+        if not cached_info:
+            return new_info
+        
+        merged = cached_info.copy()
+        
+        # 优先使用新的非空值
+        for key, value in new_info.items():
+            if value and str(value) not in ['', 'Unknown', '0']:
+                # 对于时长字段，确保新值是有效的
+                if key == 'duration':
+                    if self._is_duration_valid(value):
+                        merged[key] = value
+                else:
+                    merged[key] = value
+        
+        return merged
+    
+    def _get_track_identifier(self, media_info: Dict[str, Any]) -> str:
+        """生成歌曲的唯一标识符"""
+        return f"{media_info.get('title', '')}_{media_info.get('artist', '')}_{media_info.get('app_name', '')}"
+
     async def get_media_info(self) -> Dict[str, Any]:
-        """获取当前播放的媒体信息"""
+        """获取当前播放的媒体信息，带重试和验证机制"""
+        try:
+            # 获取基础信息
+            raw_info = await self._get_raw_media_info()
+            
+            if not raw_info or not raw_info.get('title'):
+                return {}
+            
+            track_id = self._get_track_identifier(raw_info)
+            
+            # 检查是否是新歌曲
+            is_new_track = track_id not in self.last_complete_info
+            
+            # 如果是新歌曲且信息不完整，尝试获取完整信息
+            if is_new_track and not self._is_info_complete(raw_info):
+                complete_info = await self._get_complete_media_info(raw_info)
+                if complete_info:
+                    self.last_complete_info[track_id] = complete_info
+                    return complete_info
+            
+            # 如果是已知歌曲，合并信息
+            if track_id in self.last_complete_info:
+                merged_info = self._merge_media_info(self.last_complete_info[track_id], raw_info)
+                self.last_complete_info[track_id] = merged_info
+                return merged_info
+            
+            # 存储完整信息
+            if self._is_info_complete(raw_info):
+                self.last_complete_info[track_id] = raw_info
+            
+            return raw_info
+            
+        except Exception as e:
+            logger.error(f"获取媒体信息时出错: {e}")
+            return {}
+    
+    async def _get_complete_media_info(self, initial_info: Dict[str, Any], max_wait: float = 5.0) -> Dict[str, Any]:
+        """等待获取完整的媒体信息，特别是时长信息"""
+        start_time = time.time()
+        best_info = initial_info
+        best_score = self._calculate_info_completeness_score(initial_info)
+        
+        logger.debug(f"等待完整信息: {initial_info.get('title', 'Unknown')} (初始分数: {best_score})")
+        
+        retry_intervals = [0.5, 1.0, 1.5, 2.0]  # 渐进式重试间隔
+        
+        for retry_interval in retry_intervals:
+            if time.time() - start_time >= max_wait:
+                break
+                
+            await asyncio.sleep(retry_interval)
+            
+            try:
+                current_info = await self._get_raw_media_info()
+                
+                if not current_info or not current_info.get('title'):
+                    continue
+                
+                # 确保还是同一首歌
+                if (current_info.get('title') != initial_info.get('title') or 
+                    current_info.get('artist') != initial_info.get('artist')):
+                    logger.debug("歌曲已切换，停止等待")
+                    break
+                
+                current_score = self._calculate_info_completeness_score(current_info)
+                
+                # 如果找到更完整的信息
+                if current_score > best_score:
+                    best_info = current_info
+                    best_score = current_score
+                    logger.debug(f"找到更完整的信息 (分数: {current_score})")
+                    
+                    # 如果信息已经足够完整，提前退出
+                    if self._is_info_complete(current_info):
+                        logger.debug("信息已完整，提前结束等待")
+                        break
+                        
+            except Exception as e:
+                logger.debug(f"重试获取信息时出错: {e}")
+                continue
+        
+        elapsed = time.time() - start_time
+        logger.debug(f"等待完成，耗时: {elapsed:.1f}s，最终分数: {best_score}")
+        
+        return best_info
+
+    async def _get_raw_media_info(self) -> Dict[str, Any]:
+        """获取原始媒体信息（单次调用）"""
         try:
             sessions_manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
             current_session = sessions_manager.get_current_session()
@@ -108,7 +257,7 @@ class MediaMonitor:
             return media_info
             
         except Exception as e:
-            logger.error(f"获取媒体信息时出错: {e}")
+            logger.error(f"获取原始媒体信息时出错: {e}")
             return {}
             
     def _format_media_output(self, media_info: Dict[str, Any], current_time: datetime, silent_mode: bool = False) -> None:
