@@ -38,7 +38,7 @@ class DatabaseManager:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # 媒体历史表
+             # 媒体历史表 - 添加删除状态字段
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS media_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,6 +55,9 @@ class DatabaseManager:
                     playback_status TEXT,
                     genre TEXT,
                     year INTEGER,
+                    deletion_status TEXT DEFAULT NULL,  -- 新增：删除状态 (NULL/pending/deleted/failed)
+                    deletion_attempted_at DATETIME DEFAULT NULL,  -- 新增：尝试删除时间
+                    deletion_notes TEXT DEFAULT NULL,  -- 新增：删除备注
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -79,11 +82,14 @@ class DatabaseManager:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # 检查是否需要添加新字段到现有表
+            self._migrate_database_if_needed(cursor)
             
             # 设置数据库版本
             cursor.execute('''
                 INSERT OR REPLACE INTO db_config (key, value, updated_at)
-                VALUES ('version', '1.0', ?)
+                VALUES ('version', '1.1', ?)
             ''', (datetime.now().isoformat(),))
             
             conn.commit()
@@ -421,6 +427,179 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"导出数据失败: {e}")
             return {}
+
+    def _migrate_database_if_needed(self, cursor):
+        """检查并迁移数据库结构"""
+        try:
+            # 检查是否已有删除状态字段
+            cursor.execute("PRAGMA table_info(media_history)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'deletion_status' not in columns:
+                cursor.execute('ALTER TABLE media_history ADD COLUMN deletion_status TEXT DEFAULT NULL')
+                logger.info("添加 deletion_status 字段")
+                
+            if 'deletion_attempted_at' not in columns:
+                cursor.execute('ALTER TABLE media_history ADD COLUMN deletion_attempted_at DATETIME DEFAULT NULL')
+                logger.info("添加 deletion_attempted_at 字段")
+                
+            if 'deletion_notes' not in columns:
+                cursor.execute('ALTER TABLE media_history ADD COLUMN deletion_notes TEXT DEFAULT NULL')
+                logger.info("添加 deletion_notes 字段")
+                
+        except Exception as e:
+            logger.error(f"数据库迁移失败: {e}")
+
+    def get_recent_tracks_for_deletion(self, limit: int = None, app_filter: str = None) -> List[Dict[str, Any]]:
+        """获取最近播放的歌曲，用于删除操作"""
+        if limit is None:
+            limit = config.get("display.default_recent_limit", 10)
+            
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 构建查询条件
+            where_clause = "WHERE title != '' AND title IS NOT NULL"
+            params = []
+            
+            if app_filter:
+                where_clause += " AND app_name = ?"
+                params.append(app_filter)
+            
+            cursor.execute(f'''
+                SELECT id, title, artist, album, app_name, timestamp, 
+                    deletion_status, deletion_attempted_at, deletion_notes
+                FROM media_history 
+                {where_clause}
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            ''', params + [limit])
+            
+            records = cursor.fetchall()
+            conn.close()
+            
+            # 转换为字典列表
+            result = []
+            for record in records:
+                result.append({
+                    'id': record[0],
+                    'title': record[1],
+                    'artist': record[2],
+                    'album': record[3],
+                    'app_name': record[4],
+                    'timestamp': record[5],
+                    'deletion_status': record[6],
+                    'deletion_attempted_at': record[7],
+                    'deletion_notes': record[8]
+                })
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"获取最近播放记录失败: {e}")
+            return []
+
+    def mark_song_deletion_status(self, song_id: int, status: str, notes: str = None) -> bool:
+        """标记歌曲的删除状态
+        
+        Args:
+            song_id: 歌曲记录ID
+            status: 删除状态 ('pending', 'deleted', 'failed')
+            notes: 删除备注
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE media_history 
+                SET deletion_status = ?, deletion_attempted_at = ?, deletion_notes = ?
+                WHERE id = ?
+            ''', (status, datetime.now().isoformat(), notes, song_id))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"更新歌曲删除状态: ID={song_id}, 状态={status}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"更新删除状态失败: {e}")
+            return False
+
+    def get_deletion_statistics(self) -> Dict[str, Any]:
+        """获取删除操作统计"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            stats = {}
+            
+            # 删除状态统计
+            cursor.execute('''
+                SELECT deletion_status, COUNT(*) as count
+                FROM media_history 
+                WHERE deletion_status IS NOT NULL
+                GROUP BY deletion_status
+            ''')
+            deletion_stats = dict(cursor.fetchall())
+            
+            stats['deletion_counts'] = {
+                'pending': deletion_stats.get('pending', 0),
+                'deleted': deletion_stats.get('deleted', 0),
+                'failed': deletion_stats.get('failed', 0),
+                'total_attempted': sum(deletion_stats.values())
+            }
+            
+            # 最近删除的歌曲
+            cursor.execute('''
+                SELECT title, artist, app_name, deletion_status, deletion_attempted_at
+                FROM media_history 
+                WHERE deletion_status IS NOT NULL
+                ORDER BY deletion_attempted_at DESC
+                LIMIT 10
+            ''')
+            stats['recent_deletions'] = cursor.fetchall()
+            
+            conn.close()
+            return stats
+            
+        except Exception as e:
+            logger.error(f"获取删除统计失败: {e}")
+            return {}
+
+    def reset_deletion_status(self, song_ids: List[int] = None) -> bool:
+        """重置删除状态（清除删除标记）"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            if song_ids:
+                # 重置指定歌曲
+                placeholders = ','.join('?' * len(song_ids))
+                cursor.execute(f'''
+                    UPDATE media_history 
+                    SET deletion_status = NULL, deletion_attempted_at = NULL, deletion_notes = NULL
+                    WHERE id IN ({placeholders})
+                ''', song_ids)
+            else:
+                # 重置所有歌曲
+                cursor.execute('''
+                    UPDATE media_history 
+                    SET deletion_status = NULL, deletion_attempted_at = NULL, deletion_notes = NULL
+                    WHERE deletion_status IS NOT NULL
+                ''')
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"重置删除状态完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"重置删除状态失败: {e}")
+            return False
 
 # 全局数据库实例
 db = DatabaseManager()

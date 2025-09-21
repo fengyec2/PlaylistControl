@@ -1,3 +1,8 @@
 winsdk
 psutil
+selenium==4.0.0
+pywin32==303
+pyautogui>=0.9.54
+opencv-python>=4.5.0
+pillow>=8.0.0
 PyInstaller

@@ -133,6 +133,18 @@ class ConfigManager:
                 "file": self.log_file_path,  # 使用正确的日志文件路径
                 "max_size_mb": 10,
                 "backup_count": 3
+            },
+            "qqmusic": {
+                "enabled": True,
+                "target_playlist": "TEST",
+                "ui_automation": {
+                    "action_delay": 2,
+                    "retry_times": 3
+                },
+                "deletion_rules": {
+                    "confirm_before_delete": True,
+                    "skip_favorites": True
+                }
             }
         }
         
