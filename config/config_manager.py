@@ -136,14 +136,21 @@ class ConfigManager:
             },
             "qqmusic": {
                 "enabled": True,
-                "target_playlist": "TEST",
+                "source_playlist": "TEST",  # 要删除歌曲的源歌单名称
                 "ui_automation": {
                     "action_delay": 2,
-                    "retry_times": 3
+                    "retry_times": 3,
+                    "search_timeout": 10
+                },
+                "ui_coordinates": {
+                    # 这些坐标需要根据您的QQ音乐版本调整
+                    "search_box_offset": {"x": 800, "y": 70},
+                    "playlist_menu_offset": {"x": 220, "y": 960},
+                    "song_list_area": {"x": 1300, "y": 750, "width": 300, "height": 1000}
                 },
                 "deletion_rules": {
                     "confirm_before_delete": True,
-                    "skip_favorites": True
+                    "skip_favorites": False
                 }
             }
         }
