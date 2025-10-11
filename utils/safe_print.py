@@ -30,7 +30,8 @@ def safe_print(*args, **kwargs):
                               .replace('⚡', '[STATUS]')
                               .replace('⏱️', '[PROGRESS]')
                               .replace('✨', '[NEW]')
-                              .replace('📋', '[LOG]'))
+                              .replace('📋', '[LOG]')
+                              .replace('🔍', '[DETECTING]'))
                 safe_args.append(safe_arg)
             else:
                 safe_args.append(arg)
