@@ -1,4 +1,4 @@
-# media_monitor.py - 添加静默模式和停止功能
+# media_monitor.py - 添加静默模式和停止功能，支持歌曲变化后延迟获取
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -23,8 +23,62 @@ class MediaMonitor:
         """停止监控"""
         self.running = False
         
+    async def get_basic_media_info(self) -> Dict[str, Any]:
+        """获取基本媒体信息（仅歌名和艺术家，用于快速检测变化）"""
+        try:
+            sessions_manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
+            current_session = sessions_manager.get_current_session()
+            
+            if current_session is None:
+                return {}
+                
+            # 获取基本媒体属性
+            try:
+                media_properties = await current_session.try_get_media_properties_async()
+                playback_info = current_session.get_playback_info()
+            except Exception as e:
+                logger.debug(f"获取基本媒体属性失败: {e}")
+                return {}
+                
+            if not media_properties:
+                return {}
+                
+            # 获取应用信息
+            try:
+                app_id = current_session.source_app_user_model_id or 'Unknown'
+                app_name = config.get_app_name(app_id)
+                
+                # 检查是否忽略此应用
+                if config.is_app_ignored(app_id):
+                    return {}
+            except Exception as e:
+                logger.debug(f"获取应用信息失败: {e}")
+                app_name = 'Unknown'
+                
+            # 获取播放状态
+            status_map = {
+                0: 'Closed',
+                1: 'Opened', 
+                2: 'Changing',
+                3: 'Stopped',
+                4: 'Playing',
+                5: 'Paused'
+            }
+            status = status_map.get(playback_info.playback_status if playback_info else 0, 'Unknown')
+                
+            return {
+                'title': media_properties.title or '',
+                'artist': media_properties.artist or '',
+                'app_name': app_name,
+                'status': status
+            }
+            
+        except Exception as e:
+            logger.error(f"获取基本媒体信息时出错: {e}")
+            return {}
+        
     async def get_media_info(self) -> Dict[str, Any]:
-        """获取当前播放的媒体信息"""
+        """获取完整的媒体信息"""
         try:
             sessions_manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
             current_session = sessions_manager.get_current_session()
@@ -178,33 +232,53 @@ class MediaMonitor:
         
         try:
             while self.running:
-                media_info = await self.get_media_info()
+                # 首先获取基本信息进行快速检测
+                basic_info = await self.get_basic_media_info()
                 
-                if media_info and media_info.get('title'):
-                    current_song_id = f"{media_info.get('title')}_{media_info.get('artist')}_{media_info.get('app_name')}"
+                if basic_info and basic_info.get('title'):
+                    current_song_id = f"{basic_info.get('title')}_{basic_info.get('artist')}_{basic_info.get('app_name')}"
                     last_song_id = f"{last_song_info.get('title', '')}_{last_song_info.get('artist', '')}_{last_song_info.get('app_name', '')}" if last_song_info else ""
                     
                     # 检查是否是新歌曲或状态变为播放
-                    if (current_song_id != last_song_id and media_info.get('status') == 'Playing') or \
-                       (last_song_info and last_song_info.get('status') != 'Playing' and media_info.get('status') == 'Playing'):
+                    song_changed = current_song_id != last_song_id
+                    status_changed_to_playing = (last_song_info and last_song_info.get('status') != 'Playing' and basic_info.get('status') == 'Playing')
+                    
+                    if (song_changed and basic_info.get('status') == 'Playing') or status_changed_to_playing:
+                        if not silent_mode and song_changed:
+                            detecting_prefix = "🔍 " if config.should_use_emoji() else ""
+                            safe_print(f"{detecting_prefix}检测到新歌曲，等待2秒获取完整信息...")
                         
-                        current_time = datetime.now()
-                        self._format_media_output(media_info, current_time, silent_mode)
+                        # 如果检测到歌曲变化，等待2秒再获取完整信息
+                        if song_changed:
+                            await asyncio.sleep(2)
                         
-                        # 保存到数据库
-                        if db.save_media_info(media_info):
-                            if not silent_mode:
-                                save_prefix = "✅ " if config.should_use_emoji() else ""
-                                safe_print(f"  {save_prefix}已保存到数据库")
-                            tracks_in_session += 1
-                        else:
-                            if not silent_mode:
-                                skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
-                                safe_print(f"  {skip_prefix}重复记录，跳过保存")
+                        # 获取完整的媒体信息
+                        media_info = await self.get_media_info()
+                        
+                        if media_info and media_info.get('title'):
+                            current_time = datetime.now()
+                            self._format_media_output(media_info, current_time, silent_mode)
                             
-                        if not silent_mode:
-                            safe_print("-" * 60)
-                        last_song_info = media_info.copy()
+                            # 保存到数据库
+                            if db.save_media_info(media_info):
+                                if not silent_mode:
+                                    save_prefix = "✅ " if config.should_use_emoji() else ""
+                                    safe_print(f"  {save_prefix}已保存到数据库")
+                                tracks_in_session += 1
+                            else:
+                                if not silent_mode:
+                                    skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
+                                    safe_print(f"  {skip_prefix}重复记录，跳过保存")
+                                
+                            if not silent_mode:
+                                safe_print("-" * 60)
+                            last_song_info = media_info.copy()
+                        else:
+                            # 如果获取完整信息失败，使用基本信息
+                            if not silent_mode:
+                                warning_prefix = "⚠️ " if config.should_use_emoji() else ""
+                                safe_print(f"  {warning_prefix}获取完整信息失败，使用基本信息")
+                            last_song_info = basic_info.copy()
                         
                 await asyncio.sleep(interval)
                 
