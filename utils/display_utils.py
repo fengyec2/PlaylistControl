@@ -65,10 +65,10 @@ class DisplayUtils:
             time_stamp_prefix = "🕐 " if use_emoji else ""
             safe_print(f"     {app_prefix}{app_name} | {status_prefix}{status} | {time_stamp_prefix}{dt.strftime(timestamp_format)}")
             safe_print()
-            
+    
     @staticmethod
     def show_statistics() -> None:
-        """显示播放统计"""
+        """增强版播放统计报告 —— 更深入的用户行为洞察"""
         stats = db.get_statistics()
         
         if not stats:
@@ -79,18 +79,30 @@ class DisplayUtils:
         
         stats_prefix = "📊 " if use_emoji else ""
         safe_print(f"\n{stats_prefix}播放统计报告")
-        safe_print("=" * 60)
+        safe_print("=" * 90)
         
-        chart_prefix = "📈 " if use_emoji else ""
-        song_prefix = "🎵 " if use_emoji else ""
-        session_prefix = "🎧 " if use_emoji else ""
-        avg_prefix = "📊 " if use_emoji else ""
+        # === 基础指标 ===
+        safe_print(f"📌 总播放记录: {stats.get('total_plays', 0):,}")
+        safe_print(f"🎵 不同歌曲数: {stats.get('unique_songs', 0):,}")
         
-        safe_print(f"{chart_prefix}总播放记录: {stats.get('total_plays', 0)}")
-        safe_print(f"{song_prefix}不同歌曲数: {stats.get('unique_songs', 0)}")
-        safe_print(f"{session_prefix}播放会话数: {stats.get('total_sessions', 0)}")
-        safe_print(f"{avg_prefix}平均每会话播放: {stats.get('avg_tracks_per_session', 0):.1f} 首")
+        # === 播放时间分布（按小时）===
+        hourly_stats = stats.get('hourly_stats', [])
+        if hourly_stats:
+            time_prefix = "⏰ " if use_emoji else ""
+            safe_print(f"\n{time_prefix}每日播放高峰时段（按小时）:")
+            hourly_list = sorted(hourly_stats, key=lambda x: x[1], reverse=True)
+            for hour, count in hourly_list[:5]:
+                safe_print(f"  🏁 {hour:02d}:00–{hour+1:02d}:00: {count:,} 次")
         
+        # === 月度趋势（近3个月）===
+        monthly_stats = stats.get('monthly_stats', [])
+        if monthly_stats:
+            month_prefix = "📅 " if use_emoji else ""
+            safe_print(f"\n{month_prefix}近3个月月度播放趋势:")
+            for month, count in monthly_stats:
+                safe_print(f"  {month}: {count:,} 次")
+        
+        # === 最常播放的歌曲 & 艺术家（保持原逻辑）===
         top_songs = stats.get('top_songs', [])
         if top_songs:
             trophy_prefix = "🏆 " if use_emoji else ""
@@ -98,28 +110,29 @@ class DisplayUtils:
             for i, (title, artist, album, count) in enumerate(top_songs, 1):
                 artist_str = f" - {artist}" if artist else ""
                 album_str = f" ({album})" if album else ""
-                safe_print(f"  {i:2d}. {title}{artist_str}{album_str} - {count}次")
-                
+                safe_print(f"  {i:2d}. {title}{artist_str}{album_str} - {count:,} 次")
+        
         top_artists = stats.get('top_artists', [])
         if top_artists:
             mic_prefix = "🎤 " if use_emoji else ""
             safe_print(f"\n{mic_prefix}最常播放的艺术家:")
             for i, (artist, count) in enumerate(top_artists, 1):
-                safe_print(f"  {i:2d}. {artist} - {count}次")
-                
+                safe_print(f"  {i:2d}. {artist} - {count:,} 次")
+        
         top_apps = stats.get('top_apps', [])
         if top_apps:
             app_prefix = "📱 " if use_emoji else ""
             safe_print(f"\n{app_prefix}最常使用的应用:")
             for i, (app_name, count) in enumerate(top_apps, 1):
-                safe_print(f"  {i:2d}. {app_name} - {count}次")
-                
+                safe_print(f"  {i:2d}. {app_name} - {count:,} 次")
+        
+        # === 最近7天（保持原有）===
         daily_stats = stats.get('daily_stats', [])
         if daily_stats:
             calendar_prefix = "📅 " if use_emoji else ""
             safe_print(f"\n{calendar_prefix}最近7天播放统计:")
             for date, count in daily_stats:
-                safe_print(f"  {date}: {count}次")
+                safe_print(f"  {date}: {count:,} 次")
 
 # 全局显示工具实例
 display = DisplayUtils()

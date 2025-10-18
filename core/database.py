@@ -346,7 +346,84 @@ class DatabaseManager:
                 ORDER BY play_date DESC
             ''')
             stats['daily_stats'] = cursor.fetchall()
-            
+
+            # === 总播放时长（分钟） ===
+            cursor.execute('''
+                SELECT SUM(duration) FROM media_history WHERE title != ""
+            ''')
+            total_duration = cursor.fetchone()[0] or 0
+            stats['total_duration_minutes'] = total_duration // 60 if total_duration > 0 else 0
+
+            # === 平均单曲时长（分钟） ===
+            cursor.execute('''
+                SELECT AVG(duration) FROM media_history WHERE title != ""
+            ''')
+            avg_track_duration = cursor.fetchone()[0] or 0
+            stats['avg_track_duration_minutes'] = avg_track_duration // 60 if avg_track_duration > 0 else 0
+
+            # === 完成播放次数（假设 status = 'completed' 或 'ended'）===
+            cursor.execute('''
+                SELECT COUNT(*) FROM media_history 
+                WHERE title != "" AND playback_status IN ('completed', 'ended')
+            ''')
+            completed_count = cursor.fetchone()[0]
+            stats['completed_play_count'] = completed_count
+
+            # === 流派分布（按频率分组）===
+            cursor.execute('''
+                SELECT genre, COUNT(*) as count 
+                FROM media_history 
+                WHERE genre != "" AND title != ""
+                GROUP BY genre 
+                ORDER BY count DESC
+            ''')
+            genre_distribution = cursor.fetchall()
+            stats['genre_distribution'] = dict(genre_distribution)
+
+            # === 专辑完整度统计（平均播放曲目）===
+            cursor.execute('''
+                SELECT album, AVG(tracks_played) as avg_tracks 
+                FROM (
+                    SELECT album, title, COUNT(*) as tracks_played 
+                    FROM media_history 
+                    WHERE album != "" AND title != ""
+                    GROUP BY album, title
+                ) 
+                GROUP BY album
+                ORDER BY avg_tracks DESC
+            ''')
+            album_completion_stats = cursor.fetchall()
+            stats['album_completion_stats'] = dict(album_completion_stats)
+
+            # === 按小时统计（小时：0-23）===
+            cursor.execute('''
+                SELECT 
+                    strftime('%H', timestamp) as hour, 
+                    COUNT(*) as count
+                FROM media_history 
+                WHERE title != "" 
+                AND datetime(timestamp) >= datetime('now', '-7 days')
+                GROUP BY hour 
+                ORDER BY hour
+            ''')
+            hourly_stats = cursor.fetchall()
+            stats['hourly_stats'] = [(int(h), c) for h, c in hourly_stats]
+
+            # === 月度统计（近3个月）===
+            cursor.execute('''
+                SELECT 
+                    strftime('%Y-%m', timestamp) as month, 
+                    COUNT(*) as count
+                FROM media_history 
+                WHERE title != "" 
+                AND datetime(timestamp) >= datetime('now', '-90 days')
+                GROUP BY month 
+                ORDER BY month DESC
+                LIMIT 3
+            ''')
+            monthly_stats = cursor.fetchall()
+            stats['monthly_stats'] = [(month, count) for month, count in monthly_stats]
+
             conn.close()
             return stats
             
