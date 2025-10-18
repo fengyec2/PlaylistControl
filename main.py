@@ -1,7 +1,15 @@
 import sys
 import os
 from utils.safe_print import safe_print, init_console_encoding
-from pathlib import Path
+
+# 设置环境变量强制使用UTF-8
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
+
+# 重新配置标准输入输出流
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
 
 # 在最开始初始化编码
 init_console_encoding()
