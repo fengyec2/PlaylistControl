@@ -1,3 +1,4 @@
 winsdk
 psutil
 PyInstaller
+rich
