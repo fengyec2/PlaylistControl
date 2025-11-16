@@ -10,9 +10,11 @@ Changelog
 - Remove Linux build step since the app is Windows only
 - Correct cliff configure
 - Correct cliff configure
+- 修复 CI 不能上传构建产物的问题
 
 ## 📚 文档更新
 
+- 更新 CHANGELOG.md for v2.5.1
 - 更新 CHANGELOG.md for v2.5.1
 
 ## 贡献者
