@@ -316,16 +316,47 @@ class DatabaseManager:
             ''')
             stats['top_songs'] = cursor.fetchall()
             
-            # 最常播放的艺术家
+            # === 修复的多艺术家统计 ===
+            # 获取所有不同的艺术家记录（避免重复计算）
             cursor.execute('''
-                SELECT artist, COUNT(*) as play_count 
+                SELECT DISTINCT artist
                 FROM media_history 
-                WHERE artist != ""
-                GROUP BY artist 
-                ORDER BY play_count DESC 
-                LIMIT 10
+                WHERE artist != "" AND artist IS NOT NULL
             ''')
-            stats['top_artists'] = cursor.fetchall()
+            unique_artists = [row[0] for row in cursor.fetchall()]
+            
+            # 使用字典统计每个艺术家的播放次数
+            artist_counts = {}
+            
+            for artist_string in unique_artists:
+                # 解析多艺术家
+                individual_artists = self._parse_artists(artist_string)
+                
+                if len(individual_artists) <= 1:
+                    # 单艺术家情况，直接统计
+                    cursor.execute('''
+                        SELECT COUNT(*) 
+                        FROM media_history 
+                        WHERE artist = ? AND title != ""
+                    ''', (artist_string,))
+                    count = cursor.fetchone()[0]
+                    
+                    artist_name = individual_artists[0] if individual_artists else artist_string
+                    artist_counts[artist_name] = artist_counts.get(artist_name, 0) + count
+                else:
+                    # 多艺术家情况，每个艺术家分别获得这首歌的播放次数
+                    cursor.execute('''
+                        SELECT COUNT(*) 
+                        FROM media_history 
+                        WHERE artist = ? AND title != ""
+                    ''', (artist_string,))
+                    count = cursor.fetchone()[0]
+                    
+                    for artist in individual_artists:
+                        artist_counts[artist] = artist_counts.get(artist, 0) + count
+            
+            # 按播放次数排序并取前10名
+            stats['top_artists'] = sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:10]
             
             # 最常使用的应用
             cursor.execute('''
@@ -430,6 +461,49 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"获取统计信息失败: {e}")
             return {}
+
+
+        
+    def _parse_artists(self, artist_string: str) -> List[str]:
+        """
+        解析包含多个艺术家的字符串
+        支持的分隔符：/, &, feat., featuring, ,
+        返回艺术家列表
+        """
+        if not artist_string or artist_string.strip() == "":
+            return []
+        
+        import re
+        
+        # 定义各种分隔符的正则表达式
+        separators = [
+            r'\s*/\s*',           # "Artist1 / Artist2"
+            r'\s*&\s*',           # "Artist1 & Artist2"
+            r'\s*,\s*',           # "Artist1, Artist2"
+            r'\s+feat\.?\s+',     # "Artist1 feat Artist2" 或 "Artist1 feat. Artist2"
+            r'\s+featuring\s+',   # "Artist1 featuring Artist2"
+            r'\s+ft\.?\s+',       # "Artist1 ft Artist2" 或 "Artist1 ft. Artist2"
+            r'\s+with\s+',        # "Artist1 with Artist2"
+            r'\s*\+\s*',          # "Artist1 + Artist2"
+            r'\s*x\s*',           # "Artist1 x Artist2"
+        ]
+        
+        # 组合所有分隔符
+        combined_pattern = '|'.join(f'({sep})' for sep in separators)
+        
+        # 分割艺术家字符串
+        artists = re.split(combined_pattern, artist_string, flags=re.IGNORECASE)
+        
+        # 过滤掉分隔符本身和空字符串，并清理空白
+        cleaned_artists = []
+        for artist in artists:
+            if artist and not re.match(r'^\s*[/&,+x]|\bfeat\.?|\bfeaturing|\bft\.?|\bwith\s*$', artist.strip(), re.IGNORECASE):
+                cleaned_artist = artist.strip()
+                if cleaned_artist:
+                    cleaned_artists.append(cleaned_artist)
+        
+        return cleaned_artists
+
             
     def export_data(self) -> Dict[str, Any]:
         """导出所有数据"""
