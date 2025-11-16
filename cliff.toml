@@ -62,7 +62,6 @@ commit_parsers = [
   { body = ".*security", skip = true },
   { message = "^revert", group = "<!-- 9 -->◀️ 回滚的功能" },
 ]
-skip_tags = ".*"
 conventional_commits = true
 filter_unconventional = true
 split_commits = false
