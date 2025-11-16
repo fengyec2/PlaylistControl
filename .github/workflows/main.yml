@@ -157,38 +157,6 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Prepare release assets
-        run: |
-          mkdir -p release-assets
-          
-          # 重命名构建产物以便识别
-          find ./artifacts -name "*.zip" -type f | while read file; do
-            dir_name=$(basename $(dirname "$file"))
-            file_name=$(basename "$file")
-            
-            # 从目录名提取操作系统信息
-            if [[ "$dir_name" == *"windows"* ]]; then
-              os_suffix="windows"
-            elif [[ "$dir_name" == *"ubuntu"* ]]; then
-              os_suffix="linux"
-            elif [[ "$dir_name" == *"macos"* ]]; then
-              os_suffix="macos"
-            else
-              os_suffix="unknown"
-            fi
-            
-            # 为文件添加版本和平台后缀
-            version_tag="${{ github.event.inputs.release_tag }}"
-            new_name="${file_name%.*}-${version_tag}-${os_suffix}.zip"
-            
-            cp "$file" "release-assets/$new_name"
-            echo "📦 准备发布包: $new_name"
-          done
-          
-          # 显示所有准备发布的文件
-          echo "🎁 所有发布包:"
-          ls -la release-assets/
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -198,7 +166,7 @@ jobs:
           draft: true
           prerelease: ${{ github.event.inputs.prerelease }}
           files: |
-            release-assets/*
+            ./artifacts/debug-build-windows-latest/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
