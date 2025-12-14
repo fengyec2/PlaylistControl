@@ -134,6 +134,15 @@ class ConfigManager:
                 "max_size_mb": 10,
                 "backup_count": 3
             }
+            ,
+            "notifications": {
+                "duplicates": {
+                    "enabled": True,
+                    # 首选使用 plyer（跨平台），如果不存在会自动回退到其它实现或日志
+                    "use_toast": True,
+                    "duration_seconds": 5
+                }
+            }
         }
         
     def load_config(self) -> None:

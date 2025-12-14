@@ -198,7 +198,8 @@ class DatabaseManager:
                 threshold_minutes / (24 * 60)  # 转换为天数
             ))
             
-            if cursor.fetchone() is None:  # 如果不存在重复记录
+            row = cursor.fetchone()
+            if row is None:  # 如果不存在重复记录
                 cursor.execute('''
                     INSERT INTO media_history 
                     (title, artist, album, album_artist, track_number, app_name, app_id, 
@@ -225,6 +226,19 @@ class DatabaseManager:
                 logger.info(f"保存媒体信息: {media_info.get('title', 'Unknown')} - {media_info.get('artist', 'Unknown')}")
                 return True
             else:
+                # 发现重复记录：根据配置发送通知（通知实现自带降级处理）
+                try:
+                    from utils.notification import notify_duplicate
+                    if config.get("notifications.duplicates.enabled", True):
+                        notify_duplicate(
+                            media_info.get('title', ''),
+                            media_info.get('artist', ''),
+                            media_info.get('app_name', ''),
+                            datetime.now().isoformat()
+                        )
+                except Exception as e:
+                    logger.debug(f"尝试发送重复歌曲通知时出错: {e}")
+
                 conn.close()
                 logger.debug("跳过重复记录")
                 return False
