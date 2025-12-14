@@ -140,6 +140,8 @@ class ConfigManager:
                     "enabled": True,
                     # 首选使用 plyer（跨平台），如果不存在会自动回退到其它实现或日志
                     "use_toast": True,
+                    # 可选：首选的后端，可选值: "plyer", "win10toast"。默认优先使用 win10toast（Windows环境体验更好）。
+                    "preferred_backend": "win10toast",
                     "duration_seconds": 5
                 }
             }
