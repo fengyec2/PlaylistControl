@@ -3,4 +3,3 @@ psutil
 PyInstaller
 rich
 plyer
-win10toast

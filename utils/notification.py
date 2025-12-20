@@ -31,43 +31,21 @@ def _notify_with_win10toast(title: str, message: str, duration: int = 5) -> bool
 def notify(title: str, message: str, duration: int = 5) -> None:
     """Send a desktop notification if possible; otherwise log as info.
 
-    Honors `config.notifications.duplicates.preferred_backend` if set to
-    "win10toast" or "plyer". Falls back safely to other backends or logging.
+    This function swallows errors to avoid crashing the host app if notification libs are missing.
     """
-    preferred = None
+    # Try plyer first (cross-platform)
     try:
-        preferred = config.get("notifications.duplicates.preferred_backend", None)
+        if _notify_with_plyer(title, message, duration):
+            return
     except Exception:
-        preferred = None
+        pass
 
-    # If preferred is win10toast, try it first
-    if preferred == "win10toast":
-        try:
-            if _notify_with_win10toast(title, message, duration):
-                return
-        except Exception:
-            pass
-
-        # then try plyer
-        try:
-            if _notify_with_plyer(title, message, duration):
-                return
-        except Exception:
-            pass
-
-    else:
-        # default: plyer first
-        try:
-            if _notify_with_plyer(title, message, duration):
-                return
-        except Exception:
-            pass
-
-        try:
-            if _notify_with_win10toast(title, message, duration):
-                return
-        except Exception:
-            pass
+    # Try win10toast (Windows)
+    try:
+        if _notify_with_win10toast(title, message, duration):
+            return
+    except Exception:
+        pass
 
     # Fallback: write to logger
     try:
