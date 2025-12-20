@@ -10,62 +10,9 @@ from utils.safe_print import safe_print
 try:
     import winsdk.windows.media.control as wmc
     from winsdk.windows.storage.streams import RandomAccessStreamReference
-    import winsdk.windows.ui.notifications as notifications
-    import winsdk.windows.data.xml.dom as dom
 except ImportError:
     safe_print("需要安装 winsdk 库: pip install winsdk")
     exit(1)
-
-# 可选回退：win10toast 对于非打包的普通 Python 程序更可靠
-try:
-    from win10toast import ToastNotifier
-    _HAS_WIN10TOAST = True
-except Exception:
-    ToastNotifier = None
-    _HAS_WIN10TOAST = False
-
-
-def _send_windows_toast(title: str, message: str, app_id: Optional[str] = None) -> bool:
-    """使用 Winsdk 发送 Windows 通知（Toast）。如果不可用则静默返回 False。"""
-    # 先尝试使用 win10toast（对普通脚本友好且不需要注册 AUMID）
-    try:
-        if _HAS_WIN10TOAST and ToastNotifier:
-            try:
-                toaster = ToastNotifier()
-                toaster.show_toast(title, message, duration=5, threaded=True)
-                logger.debug("使用 win10toast 发送通知")
-                return True
-            except Exception as e:
-                logger.debug(f"win10toast 发送通知失败: {e}")
-
-        # 然后尝试 winsdk 的 Toast（通常需要已注册的 AppUserModelID）
-        try:
-            if not dom or not notifications:
-                return False
-
-            toast_xml = f"""<toast>
-  <visual>
-    <binding template=\"ToastGeneric\"> 
-      <text>{title}</text>
-      <text>{message}</text>
-    </binding>
-  </visual>
-</toast>"""
-
-            xml_doc = dom.XmlDocument()
-            xml_doc.load_xml(toast_xml)
-
-            notifier = notifications.ToastNotificationManager.create_toast_notifier(app_id or 'PlaylistControl')
-            toast = notifications.ToastNotification(xml_doc)
-            notifier.show(toast)
-            logger.debug("使用 winsdk 发送通知")
-            return True
-        except Exception as e:
-            logger.debug(f"winsdk 发送通知失败: {e}")
-            return False
-    except Exception as e:
-        logger.debug(f"发送通知总失败: {e}")
-        return False
 
 class MediaMonitor:
     def __init__(self):
@@ -322,14 +269,6 @@ class MediaMonitor:
                                 if not silent_mode:
                                     skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
                                     safe_print(f"  {skip_prefix}重复记录，跳过保存")
-                                    try:
-                                        _send_windows_toast(
-                                            "已存在于数据库",
-                                            f"{media_info.get('title', 'Unknown')} — {media_info.get('artist', 'Unknown')}",
-                                            media_info.get('app_name')
-                                        )
-                                    except Exception:
-                                        safe_print("  ⚠️ 发送通知失败")
                                 
                             if not silent_mode:
                                 safe_print("-" * 60)
