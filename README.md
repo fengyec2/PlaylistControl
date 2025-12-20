@@ -12,7 +12,7 @@
 - 📊 **详细统计**: 提供播放次数、时长等统计信息
 - 🔄 **多应用支持**: 兼容 Spotify、Apple Music、网易云音乐等支持 SMTC 的应用
 - 💾 **数据导出**: 支持将播放历史导出为 JSON 格式
-- 🔧 **多运行模式**: 交互模式、后台监控、守护进程
+<!-- - 🔧 **多运行模式**: 交互模式、后台监控、守护进程 -->
 - ⚙️ **灵活配置**: 可自定义监控间隔、显示选项等
 - 📝 **详细日志**: 完整的操作日志记录
 
@@ -54,13 +54,13 @@ python main.py
 ### 基本用法
 
 ```bash
-# 交互模式（默认）- 实时显示正在播放的媒体信息
+# GUI 模式（默认）- 启动时隐藏到托盘菜单
 PlaylistControl.exe
 
-# 后台监控模式 - 在后台持续监控并记录播放历史
+# [即将废弃] 后台监控模式 - 在后台持续监控并记录播放历史
 PlaylistControl.exe -b
 
-# 守护进程模式 - 静默运行，完全在后台工作
+# [即将废弃] 守护进程模式 - 静默运行，完全在后台工作
 PlaylistControl.exe -d
 ```
 
@@ -81,10 +81,10 @@ PlaylistControl.exe -e playlist.json
 
 **启动守护进程**:
 ```bash
-# 使用默认 PID 文件启动
+# [即将废弃] 使用默认 PID 文件启动
 PlaylistControl.exe -d
 
-# 指定 PID 文件路径启动
+# [即将废弃] 指定 PID 文件路径启动
 PlaylistControl.exe -d --pid-file daemon.pid
 ```
 
@@ -165,6 +165,9 @@ PlaylistControl.exe -b -q --no-emoji -i 10
     "show_genre": true,
     "show_year": true,
     "show_track_number": true,
+    "show_overlay_on_repeat": true,
+    "overlay_duration_seconds": 5,
+    "overlay_history_limit": 5,
     "default_recent_limit": 10,
     "timestamp_format": "%Y-%m-%d %H:%M:%S"
   },
@@ -209,7 +212,9 @@ PlaylistControl.exe -b -q --no-emoji -i 10
 
 - `winsdk` - Windows SDK 接口
 - `psutil` - 进程和系统信息
-- `sqlite3` - 数据库存储（Python 内置）
+- `rich` - 统计数据可视化
+- `pystray` - 显示托盘图标
+- `Pillow` - 绘制托盘图标
 
 ### 开发依赖
 
