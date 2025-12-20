@@ -2,4 +2,3 @@ winsdk
 psutil
 PyInstaller
 rich
-plyer
