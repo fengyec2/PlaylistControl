@@ -52,6 +52,7 @@ class DatabaseManager:
                     timestamp DATETIME,
                     duration INTEGER,
                     position INTEGER,
+                        play_percentage INTEGER DEFAULT 0,
                     playback_status TEXT,
                     genre TEXT,
                     year INTEGER,
@@ -79,14 +80,27 @@ class DatabaseManager:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
-            # 设置数据库版本
+
+            # 设置数据库版本（升级到 1.1，包含 play_percentage 字段）
             cursor.execute('''
                 INSERT OR REPLACE INTO db_config (key, value, updated_at)
-                VALUES ('version', '1.0', ?)
+                VALUES ('version', '1.1', ?)
             ''', (datetime.now().isoformat(),))
-            
+
             conn.commit()
+
+            # 确保 media_history 表包含 play_percentage 列（向后兼容已有数据库）
+            try:
+                cursor.execute("PRAGMA table_info(media_history)")
+                cols = [r[1] for r in cursor.fetchall()]
+                if 'play_percentage' not in cols:
+                    cursor.execute("ALTER TABLE media_history ADD COLUMN play_percentage INTEGER DEFAULT 0")
+                    conn.commit()
+                    logger.info("数据库迁移：已添加 play_percentage 列")
+            except Exception:
+                # 忽略迁移错误，继续
+                pass
+
             conn.close()
             logger.info(f"数据库初始化完成: {self.db_path}")
             
@@ -183,12 +197,25 @@ class DatabaseManager:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            # 直接插入媒体信息（移除重复检测逻辑，始终记录当前播放信息）
+            # 计算播放百分比并插入媒体信息（始终记录当前播放信息）
+            duration = int(media_info.get('duration', 0) or 0)
+            position = int(media_info.get('position', 0) or 0)
+            play_percentage = 0
+            try:
+                if duration > 0:
+                    play_percentage = int((position / duration) * 100)
+                    if play_percentage < 0:
+                        play_percentage = 0
+                    if play_percentage > 100:
+                        play_percentage = 100
+            except Exception:
+                play_percentage = 0
+
             cursor.execute('''
                 INSERT INTO media_history 
                 (title, artist, album, album_artist, track_number, app_name, app_id, 
-                 timestamp, duration, position, playback_status, genre, year)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 timestamp, duration, position, play_percentage, playback_status, genre, year)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 media_info.get('title', ''),
                 media_info.get('artist', ''),
@@ -198,8 +225,9 @@ class DatabaseManager:
                 media_info.get('app_name', ''),
                 media_info.get('app_id', ''),
                 datetime.now().isoformat(),
-                media_info.get('duration', 0),
-                media_info.get('position', 0),
+                duration,
+                position,
+                play_percentage,
                 media_info.get('status', ''),
                 media_info.get('genre', ''),
                 media_info.get('year', 0)
@@ -231,6 +259,62 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error(f"保存会话信息失败: {e}")
+
+    def update_media_progress(self, media_info: Dict[str, Any]) -> bool:
+        """更新最近一条对应歌曲的播放进度（position 与 play_percentage）。
+        如果找不到已有记录，则回退到插入新记录（调用 save_media_info）。
+        """
+        try:
+            duration = int(media_info.get('duration', 0) or 0)
+            position = int(media_info.get('position', 0) or 0)
+            play_percentage = 0
+            if duration > 0:
+                try:
+                    play_percentage = int((position / duration) * 100)
+                except Exception:
+                    play_percentage = 0
+                play_percentage = max(0, min(100, play_percentage))
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 尝试更新最近一条匹配的记录（按 timestamp 降序）
+            cursor.execute('''
+                SELECT id FROM media_history
+                WHERE title = ? AND artist = ? AND app_name = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ''', (
+                media_info.get('title', ''),
+                media_info.get('artist', ''),
+                media_info.get('app_name', '')
+            ))
+            row = cursor.fetchone()
+            if row:
+                record_id = row[0]
+                cursor.execute('''
+                    UPDATE media_history
+                    SET position = ?, play_percentage = ?, playback_status = ?, timestamp = ?
+                    WHERE id = ?
+                ''', (
+                    position,
+                    play_percentage,
+                    media_info.get('status', ''),
+                    datetime.now().isoformat(),
+                    record_id
+                ))
+                conn.commit()
+                conn.close()
+                logger.debug(f"更新播放进度: {media_info.get('title','')} -> {play_percentage}%")
+                return True
+            else:
+                conn.close()
+                # 找不到现有记录，回退到插入
+                return self.save_media_info(media_info)
+
+        except Exception as e:
+            logger.error(f"更新播放进度失败: {e}")
+            return False
             
     def get_recent_tracks(self, limit: int = None) -> List[Tuple]:
         """获取最近播放的歌曲"""
@@ -243,7 +327,7 @@ class DatabaseManager:
             
             cursor.execute('''
                 SELECT title, artist, album, album_artist, app_name, timestamp, 
-                       duration, playback_status, genre, year, track_number
+                       duration, playback_status, genre, year, play_percentage, track_number
                 FROM media_history 
                 WHERE title != ''
                 ORDER BY timestamp DESC 
@@ -495,7 +579,7 @@ class DatabaseManager:
             # 导出播放历史
             cursor.execute('''
                 SELECT title, artist, album, album_artist, track_number, app_name, 
-                       timestamp, duration, position, playback_status, genre, year
+                       timestamp, duration, position, play_percentage, playback_status, genre, year
                 FROM media_history 
                 WHERE title != ''
                 ORDER BY timestamp DESC
@@ -529,9 +613,10 @@ class DatabaseManager:
                         'timestamp': track[6],
                         'duration': track[7],
                         'position': track[8],
-                        'playback_status': track[9],
-                        'genre': track[10],
-                        'year': track[11]
+                        'play_percentage': track[9],
+                        'playback_status': track[10],
+                        'genre': track[11],
+                        'year': track[12]
                     } for track in tracks
                 ],
                 'sessions': [

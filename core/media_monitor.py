@@ -254,22 +254,28 @@ class MediaMonitor:
                         
                         # 获取完整的媒体信息
                         media_info = await self.get_media_info()
-                        
+
                         if media_info and media_info.get('title'):
                             current_time = datetime.now()
                             self._format_media_output(media_info, current_time, silent_mode)
-                            
-                            # 保存到数据库
-                            if db.save_media_info(media_info):
-                                if not silent_mode:
-                                    save_prefix = "✅ " if config.should_use_emoji() else ""
-                                    safe_print(f"  {save_prefix}已保存到数据库")
-                                tracks_in_session += 1
+
+                            # 如果是新歌曲则插入，否则更新进度
+                            if song_changed:
+                                if db.save_media_info(media_info):
+                                    if not silent_mode:
+                                        save_prefix = "✅ " if config.should_use_emoji() else ""
+                                        safe_print(f"  {save_prefix}已保存到数据库")
+                                    tracks_in_session += 1
+                                else:
+                                    if not silent_mode:
+                                        warn_prefix = "⚠️ " if config.should_use_emoji() else ""
+                                        safe_print(f"  {warn_prefix}保存到数据库失败")
                             else:
-                                if not silent_mode:
-                                    warn_prefix = "⚠️ " if config.should_use_emoji() else ""
-                                    safe_print(f"  {warn_prefix}保存到数据库失败")
-                                
+                                # 状态从非播放变为播放，也更新进度
+                                if not db.update_media_progress(media_info):
+                                    # 若更新失败则尝试插入
+                                    db.save_media_info(media_info)
+
                             if not silent_mode:
                                 safe_print("-" * 60)
                             last_song_info = media_info.copy()
@@ -279,6 +285,17 @@ class MediaMonitor:
                                 warning_prefix = "⚠️ " if config.should_use_emoji() else ""
                                 safe_print(f"  {warning_prefix}获取完整信息失败，使用基本信息")
                             last_song_info = basic_info.copy()
+                    else:
+                        # 非歌曲变化场景：仍然尝试获取完整信息并更新播放进度
+                        media_info = await self.get_media_info()
+                        if media_info and media_info.get('title'):
+                            # 只在不为静默或配置允许时显示简短进度
+                            if not silent_mode and config.get("display.show_progress", True) and media_info.get('duration'):
+                                current_time = datetime.now()
+                                self._format_media_output(media_info, current_time, silent_mode)
+
+                            # 始终更新最近记录的播放进度
+                            db.update_media_progress(media_info)
                         
                 await asyncio.sleep(interval)
                 

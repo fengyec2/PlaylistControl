@@ -40,7 +40,7 @@ class DisplayUtils:
         safe_print("=" * 80)
         
         for i, record in enumerate(records, 1):
-            title, artist, album, album_artist, app_name, timestamp, duration, status, genre, year, track_number = record
+            title, artist, album, album_artist, app_name, timestamp, duration, status, genre, year, play_percentage, track_number = record
             dt = datetime.fromisoformat(timestamp)
             
             song_prefix = "🎵 " if use_emoji else ""
@@ -73,7 +73,11 @@ class DisplayUtils:
             if duration:
                 duration_str = f"{duration//60}:{duration%60:02d}"
                 time_prefix = "⏱️ " if use_emoji else ""
-                safe_print(f"     {time_prefix}时长: {duration_str}")
+                # 显示时长与播放百分比
+                if play_percentage is not None:
+                    safe_print(f"     {time_prefix}时长: {duration_str} | 进度: {play_percentage}%")
+                else:
+                    safe_print(f"     {time_prefix}时长: {duration_str}")
                 
             app_prefix = "📱 " if use_emoji else ""
             status_prefix = "⚡ " if use_emoji else ""
