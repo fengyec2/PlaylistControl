@@ -267,8 +267,8 @@ class MediaMonitor:
                                 tracks_in_session += 1
                             else:
                                 if not silent_mode:
-                                    skip_prefix = "ℹ️ " if config.should_use_emoji() else ""
-                                    safe_print(f"  {skip_prefix}重复记录，跳过保存")
+                                    warn_prefix = "⚠️ " if config.should_use_emoji() else ""
+                                    safe_print(f"  {warn_prefix}保存到数据库失败")
                                 
                             if not silent_mode:
                                 safe_print("-" * 60)

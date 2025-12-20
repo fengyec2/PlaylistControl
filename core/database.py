@@ -183,51 +183,32 @@ class DatabaseManager:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            # 检查重复记录
-            threshold_minutes = config.get("monitoring.duplicate_threshold_minutes", 1)
+            # 直接插入媒体信息（移除重复检测逻辑，始终记录当前播放信息）
             cursor.execute('''
-                SELECT id FROM media_history 
-                WHERE title = ? AND artist = ? AND app_name = ? AND 
-                      ABS(julianday(?) - julianday(timestamp)) < ?
+                INSERT INTO media_history 
+                (title, artist, album, album_artist, track_number, app_name, app_id, 
+                 timestamp, duration, position, playback_status, genre, year)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 media_info.get('title', ''),
                 media_info.get('artist', ''),
+                media_info.get('album', ''),
+                media_info.get('album_artist', ''),
+                media_info.get('track_number', 0),
                 media_info.get('app_name', ''),
+                media_info.get('app_id', ''),
                 datetime.now().isoformat(),
-                threshold_minutes / (24 * 60)  # 转换为天数
+                media_info.get('duration', 0),
+                media_info.get('position', 0),
+                media_info.get('status', ''),
+                media_info.get('genre', ''),
+                media_info.get('year', 0)
             ))
-            
-            if cursor.fetchone() is None:  # 如果不存在重复记录
-                cursor.execute('''
-                    INSERT INTO media_history 
-                    (title, artist, album, album_artist, track_number, app_name, app_id, 
-                     timestamp, duration, position, playback_status, genre, year)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    media_info.get('title', ''),
-                    media_info.get('artist', ''),
-                    media_info.get('album', ''),
-                    media_info.get('album_artist', ''),
-                    media_info.get('track_number', 0),
-                    media_info.get('app_name', ''),
-                    media_info.get('app_id', ''),
-                    datetime.now().isoformat(),
-                    media_info.get('duration', 0),
-                    media_info.get('position', 0),
-                    media_info.get('status', ''),
-                    media_info.get('genre', ''),
-                    media_info.get('year', 0)
-                ))
-                
-                conn.commit()
-                conn.close()
-                logger.info(f"保存媒体信息: {media_info.get('title', 'Unknown')} - {media_info.get('artist', 'Unknown')}")
-                return True
-            else:
-                conn.close()
-                logger.debug("跳过重复记录")
-                return False
+
+            conn.commit()
+            conn.close()
+            logger.info(f"保存媒体信息: {media_info.get('title', 'Unknown')} - {media_info.get('artist', 'Unknown')}")
+            return True
                 
         except Exception as e:
             logger.error(f"保存媒体信息失败: {e}")
