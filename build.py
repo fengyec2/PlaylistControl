@@ -68,7 +68,7 @@ def build_executable():
         '--hidden-import=winsdk',
         '--hidden-import=sqlite3',
         '--hidden-import=psutil',
-        '--console',
+        '--windowed',
         '--clean',
     ]
     
