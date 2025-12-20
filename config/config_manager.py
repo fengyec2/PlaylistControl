@@ -99,6 +99,9 @@ class ConfigManager:
                 "show_genre": True,
                 "show_year": True,
                 "show_track_number": True,
+                "show_overlay_on_repeat": True,
+                "overlay_duration_seconds": 5,
+                "overlay_history_limit": 5,
                 "default_recent_limit": 10,
                 "timestamp_format": "%Y-%m-%d %H:%M:%S"
             },
