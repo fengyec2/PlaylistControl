@@ -6,6 +6,7 @@ from config.config_manager import config
 from core.database import db
 from utils.logger import logger
 from utils.safe_print import safe_print
+from utils.overlay import overlay
 
 try:
     import winsdk.windows.media.control as wmc
@@ -266,6 +267,17 @@ class MediaMonitor:
                                         save_prefix = "✅ " if config.should_use_emoji() else ""
                                         safe_print(f"  {save_prefix}已保存到数据库")
                                     tracks_in_session += 1
+                                    # 检查是否之前曾有播放记录，若有则显示叠加层
+                                    try:
+                                        if config.get("display.show_overlay_on_repeat", True):
+                                            history = db.get_track_history(media_info.get('title',''), media_info.get('artist',''), limit=config.get("display.overlay_history_limit", 5))
+                                            # 因为刚插入当前记录，若历史记录>=2则说明之前记录过
+                                            if history and len(history) > 1:
+                                                # 将最近几次（包含本次）传给叠加层显示
+                                                overlay_history = history[:config.get("display.overlay_history_limit", 5)]
+                                                overlay.show(media_info.get('title',''), media_info.get('artist',''), overlay_history, duration=config.get("display.overlay_duration_seconds", 5))
+                                    except Exception as e:
+                                        logger.debug(f"尝试显示叠加层时出错: {e}")
                                 else:
                                     if not silent_mode:
                                         warn_prefix = "⚠️ " if config.should_use_emoji() else ""

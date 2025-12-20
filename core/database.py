@@ -341,6 +341,28 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"获取最近播放记录失败: {e}")
             return []
+
+    def get_track_history(self, title: str, artist: str = '', limit: int = 5) -> List[Tuple]:
+        """获取指定歌曲的最近播放记录（按时间倒序）。返回包含(timestamp, play_percentage, playback_status, app_name)的记录列表"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT timestamp, play_percentage, playback_status, app_name
+                FROM media_history
+                WHERE title = ? AND (? = '' OR artist = ?)
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ''', (title, artist, artist, limit))
+
+            rows = cursor.fetchall()
+            conn.close()
+            return rows
+
+        except Exception as e:
+            logger.error(f"查询歌曲历史失败: {e}")
+            return []
             
     def get_statistics(self) -> Dict[str, Any]:
         """获取播放统计"""
