@@ -184,8 +184,8 @@ class AppLauncher:
         # 无命令行参数：默认启动 GUI 并自动开始监控
         try:
             gui = GuiApp(title=version_info.get_full_name() if 'version_info' in globals() else 'PlaylistControl')
-            # 默认无参数下自动开始监控
-            gui.run(auto_start=True, monitor=monitor)
+            # 默认无参数下自动开始监控，并默认隐藏到托盘
+            gui.run(auto_start=True, monitor=monitor, start_hidden=True)
         except Exception:
             # 如果 GUI 启动失败，则在前台直接开始监控
             try:

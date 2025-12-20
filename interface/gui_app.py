@@ -143,7 +143,7 @@ class GuiApp:
         except Exception:
             pass
 
-    def run(self, auto_start=False, monitor=None):
+    def run(self, auto_start=False, monitor=None, start_hidden=False):
         if tk is None:
             # tkinter not available; fallback to console
             return
@@ -182,7 +182,7 @@ class GuiApp:
                 except Exception:
                     pass
 
-        # install tray icon if available
+        # install tray icon if available (do this before hiding so tray is usable)
         if pystray is not None:
             try:
                 self._install_tray()
@@ -201,6 +201,13 @@ class GuiApp:
             try:
                 import asyncio
                 threading.Thread(target=lambda: asyncio.run(monitor.monitor_media()), daemon=True).start()
+            except Exception:
+                pass
+
+        # optionally start hidden (hide window but keep tray installed)
+        if start_hidden:
+            try:
+                self.root.withdraw()
             except Exception:
                 pass
 
