@@ -2,6 +2,34 @@ Changelog
 
 ## 🚀 新增功能与优化
 
+- 重复播放时发送通知
+- 优先使用 win10toast 发送通知
+- 移除了重复歌曲检查
+- 默认隐藏 GUI 页面
+- 支持统计播放百分比
+- 支持叠加层显示重复播放歌曲的历史播放信息
+
+## 🐛 Bug 修复
+
+- 修复叠加层配置
+
+## 📚 文档更新
+
+- 更新 CHANGELOG.md for v2.5.1
+- 更新文档
+
+## Refractor
+
+- 重构重复通知
+- 重构应用运行方式，默认使用 GUI 模式运行
+
+## 贡献者
+
+感谢以下贡献者的贡献：
+
+
+## 🚀 新增功能与优化
+
 - Implement proper multi-artist support in playback statistics
 - Add GitHub Actions workflow for build and release automation
 
