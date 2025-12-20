@@ -2,3 +2,5 @@ winsdk
 psutil
 PyInstaller
 rich
+pystray
+Pillow

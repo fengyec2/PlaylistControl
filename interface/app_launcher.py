@@ -10,7 +10,8 @@ from utils.export_manager import ExportManager
 from interface.interactive_mode import InteractiveMode
 from interface.background_mode import BackgroundMode
 from interface.daemon_mode import DaemonMode
-from config.config_manager import config
+from interface.gui_app import GuiApp
+from config.config_manager import config, version_info
 from core.media_monitor import monitor
 from utils.display_utils import display
 from utils.logger import logger
@@ -143,28 +144,55 @@ class AppLauncher:
     
     def launch_mode(self):
         """启动对应的运行模式"""
-        # 守护进程模式
-        if self.args.daemon:
-            daemon_mode = DaemonMode(monitor)
-            daemon_mode.set_verbose(self.verbose)
-            setup_signal_handlers(monitor)
-            daemon_mode.run_daemon(self.args.interval, self.args.pid_file)
+        # 如果启动时传入任何命令行参数，则以命令行模式运行（不显示 GUI）
+        import sys as _sys
+        if len(_sys.argv) > 1:
+            # 处理显示/导出/停止等命令（handle_commands 已处理大多数短命令）
+            # 显示最近播放
+            if getattr(self.args, 'recent', None) is not None:
+                display.show_recent_tracks(self.args.recent)
+                return
+
+            # 显示统计信息
+            if getattr(self.args, 'stats', False):
+                display.show_statistics()
+                return
+
+            # 导出历史
+            if getattr(self.args, 'export', None):
+                ExportManager.export_to_file(self.args.export)
+                return
+
+            # 停止后台进程
+            if getattr(self.args, 'stop', False):
+                ProcessManager.stop_background_process(getattr(self.args, 'pid_file', None))
+                return
+
+            # 如果用户请求后台/守护选项，我们在前台以命令行方式运行监控（不使用 GUI/daemon 模式）
+            if getattr(self.args, 'daemon', False) or getattr(self.args, 'background', False):
+                setup_signal_handlers(monitor)
+                try:
+                    import asyncio
+                    asyncio.run(monitor.monitor_media(getattr(self.args, 'interval', None)))
+                except KeyboardInterrupt:
+                    safe_print("\n监控已停止")
+                return
+
+            # 其他参数情形，回退到命令行输出默认行为
             return
-        
-        # 后台监控模式
-        if self.args.background:
-            background_mode = BackgroundMode(monitor)
-            setup_signal_handlers(monitor)
+
+        # 无命令行参数：默认启动 GUI 并自动开始监控
+        try:
+            gui = GuiApp(title=version_info.get_full_name() if 'version_info' in globals() else 'PlaylistControl')
+            # 默认无参数下自动开始监控
+            gui.run(auto_start=True, monitor=monitor)
+        except Exception:
+            # 如果 GUI 启动失败，则在前台直接开始监控
             try:
                 import asyncio
-                asyncio.run(background_mode.run(self.args.interval, self.args.quiet))
+                asyncio.run(monitor.monitor_media())
             except KeyboardInterrupt:
-                safe_print("\n后台监控已停止")
-            return
-        
-        # 默认交互模式
-        interactive = InteractiveMode(monitor)
-        interactive.run()
+                safe_print("\n监控已停止")
     
     def handle_error(self, error):
         """统一错误处理"""

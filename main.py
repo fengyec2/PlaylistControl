@@ -14,6 +14,16 @@ if hasattr(sys.stdout, 'reconfigure'):
 # 在最开始初始化编码
 init_console_encoding()
 
+# 在 Windows 上尝试隐藏控制台窗口（以避免启动时弹出命令行）
+if os.name == 'nt':
+    try:
+        import ctypes
+        whnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if whnd:
+            ctypes.windll.user32.ShowWindow(whnd, 0)  # SW_HIDE = 0
+    except Exception:
+        pass
+
 def main():
     try:
         # 导入 AppLauncher
