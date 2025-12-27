@@ -51,50 +51,53 @@ python main.py
 
 ## 📖 使用方法
 
+> [!NOTE]  
+> 仅从源码运行时可用
+
 ### 基本用法
 
 ```bash
 # GUI 模式（默认）- 启动时隐藏到托盘菜单
-PlaylistControl.exe
+main.py
 
 # [即将废弃] 后台监控模式 - 在后台持续监控并记录播放历史
-PlaylistControl.exe -b
+main.py -b
 
 # [即将废弃] 守护进程模式 - 静默运行，完全在后台工作
-PlaylistControl.exe -d
+main.py -d
 ```
 
 ### 查看播放历史
 
 ```bash
 # 显示最近播放的 20 首歌曲
-PlaylistControl.exe -r 20
+main.py -r 20
 
 # 显示播放统计信息
-PlaylistControl.exe -s
+main.py -s
 
 # 导出播放历史到 JSON 文件
-PlaylistControl.exe -e playlist.json
+main.py -e playlist.json
 ```
 
 ### 守护进程管理
 
 **启动守护进程**:
 ```bash
-# [即将废弃] 使用默认 PID 文件启动
-PlaylistControl.exe -d
+# 使用默认 PID 文件启动
+main.py -d
 
-# [即将废弃] 指定 PID 文件路径启动
-PlaylistControl.exe -d --pid-file daemon.pid
+# 指定 PID 文件路径启动
+main.py -d --pid-file daemon.pid
 ```
 
 **停止守护进程**:
 ```bash
 # 自动查找并停止后台运行的程序
-PlaylistControl.exe --stop
+main.py --stop
 
 # 使用指定 PID 文件停止
-PlaylistControl.exe --stop --pid-file daemon.pid
+main.py --stop --pid-file daemon.pid
 ```
 
 ### 高级选项
@@ -102,25 +105,25 @@ PlaylistControl.exe --stop --pid-file daemon.pid
 **监控设置**:
 ```bash
 # 自定义监控间隔（秒）
-PlaylistControl.exe -b -i 5
+main.py -b -i 5
 
 # 设置 5 秒监控间隔的守护进程
-PlaylistControl.exe -d -i 5 --pid-file daemon.pid
+main.py -d -i 5 --pid-file daemon.pid
 ```
 
 **显示选项**:
 ```bash
 # 静默模式 - 减少输出信息
-PlaylistControl.exe -q
+main.py -q
 
 # 详细输出模式 - 显示更多调试信息
-PlaylistControl.exe -v
+main.py -v
 
 # 禁用 Emoji 显示 - 纯文本输出
-PlaylistControl.exe --no-emoji
+main.py --no-emoji
 
 # 组合使用多个选项
-PlaylistControl.exe -b -q --no-emoji -i 10
+main.py -b -q --no-emoji -i 10
 ```
 
 ### 参数详解
