@@ -1,4 +1,4 @@
-# media_monitor.py - 添加静默模式和停止功能，支持歌曲变化后延迟获取
+# media_monitor.py
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -298,16 +298,21 @@ class MediaMonitor:
                                 safe_print(f"  {warning_prefix}获取完整信息失败，使用基本信息")
                             last_song_info = basic_info.copy()
                     else:
-                        # 非歌曲变化场景：仍然尝试获取完整信息并更新播放进度
-                        media_info = await self.get_media_info()
-                        if media_info and media_info.get('title'):
-                            # 只在不为静默或配置允许时显示简短进度
-                            if not silent_mode and config.get("display.show_progress", True) and media_info.get('duration'):
-                                current_time = datetime.now()
-                                self._format_media_output(media_info, current_time, silent_mode)
+                        # 非歌曲变化场景：只在正在播放时更新进度
+                        if basic_info.get('status') == 'Playing':
+                            media_info = await self.get_media_info()
+                            if media_info and media_info.get('title'):
+                                # 只在不为静默或配置允许时显示简短进度
+                                if not silent_mode and config.get("display.show_progress", True) and media_info.get('duration'):
+                                    current_time = datetime.now()
+                                    self._format_media_output(media_info, current_time, silent_mode)
 
-                            # 始终更新最近记录的播放进度
-                            db.update_media_progress(media_info)
+                                # 始终更新最近记录的播放进度
+                                db.update_media_progress(media_info)
+                        else:
+                            # 状态不是Playing时，更新last_song_info的状态但不写数据库
+                            if last_song_info:
+                                last_song_info['status'] = basic_info.get('status')
                         
                 await asyncio.sleep(interval)
                 
